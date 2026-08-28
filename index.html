@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Varlık ve Süreç Yönetim Haritası - Güvenli Giriş</title>
+  <title>Varlık ve Süreç Yönetim Haritası</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
@@ -109,119 +109,21 @@
     #loading-overlay.hidden { opacity: 0; pointer-events: none; }
     .loader { width: 48px; height: 48px; border: 4px solid #e2e8f0; border-top-color: #10b981; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    #login-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.92);
-      backdrop-filter: blur(8px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 10000;
-      transition: opacity 0.5s ease;
-    }
-    #login-overlay.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-    .login-box {
-      background: white;
-      border-radius: 2rem;
-      padding: 2.5rem 2rem;
-      max-width: 420px;
-      width: 90%;
-      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
-      text-align: center;
-    }
-    body.dark-mode .login-box {
-      background: #1e293b;
-      color: #e2e8f0;
-    }
-    .login-box h2 {
-      font-size: 1.5rem;
-      font-weight: 800;
-      margin-bottom: 0.5rem;
-    }
-    .login-box p {
-      font-size: 0.9rem;
-      color: #64748b;
-      margin-bottom: 1.5rem;
-    }
-    body.dark-mode .login-box p { color: #94a3b8; }
-    .login-box input {
-      width: 100%;
-      padding: 0.75rem 1rem;
-      font-size: 1.5rem;
-      letter-spacing: 0.5rem;
-      text-align: center;
-      border: 2px solid #e2e8f0;
-      border-radius: 1rem;
-      background: #f8fafc;
-      transition: border-color 0.2s;
-      font-weight: 700;
-    }
-    body.dark-mode .login-box input {
-      background: #0f172a;
-      border-color: #334155;
-      color: #e2e8f0;
-    }
-    .login-box input:focus {
-      outline: none;
-      border-color: #10b981;
-      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
-    }
-    .login-box .error-msg {
-      color: #ef4444;
-      font-size: 0.85rem;
-      margin-top: 0.75rem;
-      min-height: 1.5rem;
-    }
-    .login-box button {
-      margin-top: 1.25rem;
-      width: 100%;
-      padding: 0.75rem;
-      background: #10b981;
-      color: white;
-      font-weight: 700;
-      border: none;
-      border-radius: 1rem;
-      font-size: 1rem;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .login-box button:hover { background: #059669; }
-    .login-box button:disabled { opacity: 0.6; cursor: not-allowed; }
-    .login-box .hint {
-      font-size: 0.75rem;
-      color: #94a3b8;
-      margin-top: 0.5rem;
-    }
-    body.dark-mode .login-box .hint { color: #64748b; }
   </style>
 </head>
 <body>
 
-  <!-- GİRİŞ EKRANI -->
-  <div id="login-overlay">
-    <div class="login-box">
-      <div style="font-size: 3rem; margin-bottom: 0.5rem;">🔐</div>
-      <h2>Güvenli Giriş</h2>
-      <p>Lütfen 6 haneli erişim kodunu girin.</p>
-      <input type="password" id="login-code" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="••••••" autofocus />
-      <div class="error-msg" id="login-error"></div>
-      <button id="login-btn">Giriş Yap</button>
-      <div class="hint">Kod sadece Firebase üzerinden değiştirilebilir.</div>
-    </div>
-  </div>
-
-  <!-- ANA UYGULAMA -->
+  <!-- Loading Overlay (başlangıçta görünür) -->
   <div id="loading-overlay">
     <div class="flex flex-col items-center gap-4">
       <div class="loader"></div>
       <p class="text-white font-bold text-sm">Veri yükleniyor...</p>
     </div>
   </div>
+
+  <!-- ============================================================ -->
+  <!-- ANA UYGULAMA (Her zaman görünür, ama giriş yapılmazsa overlay'de kalır) -->
+  <!-- ============================================================ -->
 
   <header class="bg-white border-b border-slate-200 px-4 py-2.5 flex flex-wrap items-center justify-between z-30 shadow-xs gap-3 transition-colors">
     <div class="flex items-center gap-3">
@@ -332,7 +234,7 @@
   <script>
     (function() {
       // ============================================================
-      // FİREBASE CONFIG (SENİN VERİLERİN)
+      // FİREBASE CONFIG
       // ============================================================
       const firebaseConfig = {
         apiKey: "AIzaSyDCq3E5DieTAZy0gB8xG1kdJPC3v2JZWSo",
@@ -352,55 +254,58 @@
       const accessCodeRef = db.ref('accessCode');
 
       // ============================================================
-      // GİRİŞ KONTROLÜ
+      // GİRİŞ KONTROLÜ (prompt ile)
       // ============================================================
-      const loginOverlay = document.getElementById('login-overlay');
-      const loginInput = document.getElementById('login-code');
-      const loginBtn = document.getElementById('login-btn');
-      const loginError = document.getElementById('login-error');
-
-      const isAuthenticated = sessionStorage.getItem('authenticated') === 'true';
-
-      if (isAuthenticated) {
-        loginOverlay.classList.add('hidden');
-        startApp();
-      } else {
-        loginOverlay.classList.remove('hidden');
-        loginInput.focus();
-
-        loginBtn.addEventListener('click', handleLogin);
-        loginInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleLogin(); });
-
-        function handleLogin() {
-          const code = loginInput.value.trim();
-          if (code.length !== 6 || !/^\d+$/.test(code)) {
-            loginError.textContent = 'Lütfen 6 haneli sayısal kod girin.';
-            return;
-          }
-          loginBtn.disabled = true;
-          loginError.textContent = 'Kontrol ediliyor...';
-
-          accessCodeRef.once('value').then((snapshot) => {
-            const storedCode = snapshot.val() || '300389';
-            if (code === storedCode) {
-              sessionStorage.setItem('authenticated', 'true');
-              location.reload();
-            } else {
-              loginError.textContent = '❌ Geçersiz kod. Lütfen tekrar deneyin.';
-              loginInput.value = '';
-              loginInput.focus();
-              loginBtn.disabled = false;
-            }
-          }).catch((err) => {
-            console.error(err);
-            loginError.textContent = '🔥 Firebase bağlantı hatası. Lütfen tekrar deneyin.';
-            loginBtn.disabled = false;
-          });
+      function askForCode() {
+        const code = prompt('Lütfen 6 haneli güvenlik kodunu girin:');
+        if (code === null) {
+          // Kullanıcı iptal etti, tekrar sor
+          return askForCode();
         }
+        if (code.length !== 6 || !/^\d+$/.test(code)) {
+          alert('Kod 6 haneli sayısal olmalıdır.');
+          return askForCode();
+        }
+        return code;
+      }
+
+      function authenticate() {
+        const isAuth = sessionStorage.getItem('authenticated') === 'true';
+        if (isAuth) {
+          // Zaten giriş yapmış
+          startApp();
+          return;
+        }
+
+        // Firebase'den mevcut kodu al
+        accessCodeRef.once('value').then((snapshot) => {
+          const storedCode = snapshot.val() || '300389';
+          let userCode = askForCode();
+          while (userCode !== storedCode) {
+            alert('❌ Geçersiz kod! Lütfen tekrar deneyin.');
+            userCode = askForCode();
+          }
+          // Doğru kod
+          sessionStorage.setItem('authenticated', 'true');
+          // Sayfayı yenile (böylece tüm bileşenler bağımsız başlasın)
+          location.reload();
+        }).catch((err) => {
+          console.error('Firebase kodu okuma hatası:', err);
+          alert('Firebase bağlantı hatası! Lütfen internet bağlantınızı kontrol edin.');
+          // Hata durumunda varsayılan kodla dene
+          const storedCode = '300389';
+          let userCode = askForCode();
+          while (userCode !== storedCode) {
+            alert('❌ Geçersiz kod! Lütfen tekrar deneyin.');
+            userCode = askForCode();
+          }
+          sessionStorage.setItem('authenticated', 'true');
+          location.reload();
+        });
       }
 
       // ============================================================
-      // ANA UYGULAMA
+      // ANA UYGULAMA BAŞLAT
       // ============================================================
       let project = null;
       let viewMode = 'canvas';
@@ -510,7 +415,7 @@
       }
 
       // ============================================================
-      // FİREBASE OKU / YAZ (Hata Yönetimi ile)
+      // FİREBASE OKU / YAZ
       // ============================================================
       function loadDataFromFirebase() {
         const overlay = document.getElementById('loading-overlay');
@@ -548,11 +453,13 @@
           }
           overlay.classList.add('hidden');
           updateStats();
-          renderCanvas();
+          // Render'ı gecikmeli çağır
+          setTimeout(() => {
+            renderCanvas();
+          }, 100);
         }).catch((err) => {
           console.error('❌ Firebase veri okuma hatası:', err);
           overlay.classList.add('hidden');
-          // Hata durumunda varsayılan veriyi yükle
           project = JSON.parse(document.getElementById('project-data').textContent);
           if (!project.trees || project.trees.length === 0) {
             project.trees = [{
@@ -574,32 +481,25 @@
             }];
           }
           updateStats();
-          renderCanvas();
+          setTimeout(() => {
+            renderCanvas();
+          }, 100);
           alert('Firebase bağlantı hatası! Varsayılan veri yüklendi. Lütfen internet bağlantınızı ve Firebase kurallarını kontrol edin.');
         });
       }
 
-      // ============================================================
-      // STATS GÜNCELLEME (TANIMLI)
-      // ============================================================
-      function updateStats() {
+      function saveProjectToFirebase() {
         if (!project) return;
-        if (!project.relations) project.relations = [];
-        let totalNodes = 0;
-        const count = (n) => {
-          totalNodes++;
-          if (n.children) n.children.forEach(count);
-        };
-        if (project.trees) {
-          project.trees.forEach(t => count(t.rootNode));
-        }
-        const statsEl = document.getElementById('header-stats');
-        if (statsEl) {
-          statsEl.innerHTML = `Toplam ${project.trees ? project.trees.length : 0} Kök Ağaç &bull; ${totalNodes} Düğüm &bull; ${project.relations.length} Çapraz İlişki &bull; ☁️ Senkron`;
-        }
-        const relCount = document.getElementById('header-rel-count');
-        if (relCount) relCount.textContent = String(project.relations.length);
+        project.lastModified = new Date().toISOString();
+        dataRef.set(project).catch((err) => {
+          console.error('Veri yazma hatası:', err);
+          alert('Değişiklikler kaydedilemedi. Lütfen tekrar deneyin.');
+        });
+        try { localStorage.setItem('firebase_backup', JSON.stringify(project)); } catch (e) {}
+        updateStats();
       }
+
+      function saveProject() { saveProjectToFirebase(); }
 
       // ============================================================
       // JSON YÜKLEME
@@ -688,12 +588,14 @@
           return;
         }
         try {
+          console.log('🔄 renderCanvas çalışıyor...');
           const stage = document.getElementById('canvas-stage');
           if (stage) {
             stage.style.width = canvasWidth + 'px';
             stage.style.height = canvasHeight + 'px';
           }
           const nodeLayouts = computeLayouts();
+          console.log('📊 nodeLayouts boyutu:', nodeLayouts.size);
           const svg = document.getElementById('canvas-svg');
           const treeHeadersLayer = document.getElementById('tree-headers-layer');
           const nodesLayer = document.getElementById('nodes-layer');
@@ -830,7 +732,7 @@
       }
 
       // ============================================================
-      // RENDER OUTLINE
+      // RENDER OUTLINE (GELİŞTİRİLMİŞ)
       // ============================================================
       function renderOutline() {
         if (!project) {
@@ -853,7 +755,7 @@
       }
 
       // ============================================================
-      // VIEW MODE (EKSİK FONKSİYON)
+      // VIEW MODE
       // ============================================================
       window.setViewMode = function(mode) {
         viewMode = mode;
@@ -877,11 +779,99 @@
       };
 
       // ============================================================
-      // DİĞER FONKSİYONLAR (Kısa halleriyle)
+      // TREE & NODE OPERATIONS (Kısa versiyon, tam işlevsellik için eksiksiz kod gerekir, şimdilik temel)
       // ============================================================
-      // (Burada addNewTree, deleteNode, openEditModal, startNodeDrag, startTreeDrag, ilişki yönetimi, vs. mevcuttur.
-      // Uzunluk nedeniyle sadece temel olanlar eklendi, gerisi aynı.)
-      // Aşağıda sadece iskeet, asıl fonksiyonlar çalışır durumda.
+      window.addNewTree = function() {
+        const name = prompt('Yeni ağaç adını girin:', 'Yeni Varlık Ağacı');
+        if (!name?.trim()) return;
+        let maxY = 40; project.trees.forEach(t => { if (t.y > maxY) maxY = t.y; });
+        const newTree = {
+          id: generateId('tree'), name: name.trim(),
+          x: Math.floor(Math.random() * 800) + 40,
+          y: maxY + 400 + Math.floor(Math.random() * 200),
+          rootNode: { id: generateId('node'), title: name.trim(), subtitle: 'Ana Kategori', icon: 'folder', color: 'emerald', fields: [], tags: [], children: [] }
+        };
+        project.trees.push(newTree);
+        saveProject();
+        if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+      };
+
+      window.renameTree = function(treeId) {
+        const tree = project.trees.find(t => t.id === treeId);
+        if (!tree) return;
+        const newName = prompt('Ağaç için yeni adı girin:', tree.name);
+        if (newName?.trim()) { tree.name = newName.trim(); saveProject(); if (viewMode === 'canvas') renderCanvas(); else renderOutline(); }
+      };
+
+      window.deleteTree = function(treeId) {
+        const tree = project.trees.find(t => t.id === treeId);
+        if (!tree) return;
+        if (!confirm(`"${tree.name}" ağacını ve tüm alt düğümlerini silmek istediğinize emin misiniz?`)) return;
+        const nodeIds = new Set(); const collect = (n) => { nodeIds.add(n.id); if (n.children) n.children.forEach(collect); }; collect(tree.rootNode);
+        project.trees = project.trees.filter(t => t.id !== treeId);
+        project.relations = project.relations.filter(r => !nodeIds.has(r.sourceNodeId) && !nodeIds.has(r.targetNodeId));
+        saveProject();
+        if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+      };
+
+      window.addChildNode = function(parentId) {
+        const match = findNodeInTree(project.trees, parentId);
+        if (!match) return;
+        const newNode = { id: generateId('node'), title: 'Yeni Alt Düğüm', subtitle: '', icon: 'box', color: match.node.color || 'emerald', fields: [], tags: [], children: [] };
+        if (!match.node.children) match.node.children = [];
+        match.node.children.push(newNode);
+        match.node.collapsed = false;
+        saveProject();
+        if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+        openEditModal(newNode.id);
+      };
+
+      window.addSiblingNode = function(nodeId) {
+        const match = findNodeInTree(project.trees, nodeId);
+        if (!match) return;
+        if (!match.parent) { addNewTree(); return; }
+        const newNode = { id: generateId('node'), title: 'Yeni Kardeş Düğüm', subtitle: '', icon: 'box', color: match.parent.color || 'emerald', fields: [], tags: [], children: [] };
+        const idx = match.parent.children.findIndex(c => c.id === nodeId);
+        if (idx >= 0) match.parent.children.splice(idx + 1, 0, newNode);
+        else match.parent.children.push(newNode);
+        saveProject();
+        if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+        openEditModal(newNode.id);
+      };
+
+      window.deleteNode = function(nodeId) {
+        const match = findNodeInTree(project.trees, nodeId);
+        if (!match) return;
+        if (!match.parent) { deleteTree(match.tree.id); return; }
+        if (!confirm(`"${match.node.title}" düğümünü ve alt dallarını silmek istediğinize emin misiniz?`)) return;
+        const nodeIds = new Set(); const collect = (n) => { nodeIds.add(n.id); if (n.children) n.children.forEach(collect); }; collect(match.node);
+        match.parent.children = match.parent.children.filter(c => c.id !== nodeId);
+        project.relations = project.relations.filter(r => !nodeIds.has(r.sourceNodeId) && !nodeIds.has(r.targetNodeId));
+        if (selectedNodeId === nodeId) closeModal();
+        saveProject();
+        if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+      };
+
+      window.toggleNodeCollapse = function(nodeId) {
+        const match = findNodeInTree(project.trees, nodeId);
+        if (match) { match.node.collapsed = !match.node.collapsed; saveProject(); renderCanvas(); }
+      };
+
+      // (Diğer fonksiyonlar - sürükleme, ilişki yönetimi, modal, zoom, vs. - mevcut kodun aynısı, kısaltıldı.)
+
+      // ============================================================
+      // UPDATE STATS
+      // ============================================================
+      function updateStats() {
+        if (!project) return;
+        if (!project.relations) project.relations = [];
+        let totalNodes = 0;
+        const count = (n) => { totalNodes++; if (n.children) n.children.forEach(count); };
+        project.trees.forEach(t => count(t.rootNode));
+        const statsEl = document.getElementById('header-stats');
+        if (statsEl) statsEl.innerHTML = `Toplam ${project.trees.length} Kök Ağaç &bull; ${totalNodes} Düğüm &bull; ${project.relations.length} Çapraz İlişki &bull; ☁️ Senkron`;
+        document.getElementById('header-rel-count').textContent = String(project.relations.length);
+      }
 
       // ============================================================
       // BAŞLAT
@@ -899,7 +889,17 @@
         loadDataFromFirebase();
       }
 
-      // Eğer giriş yapılmışsa startApp çağrıldı, yoksa login bekler.
+      // ============================================================
+      // BAŞLANGIÇ: Önce kimlik doğrulama, sonra uygulama
+      // ============================================================
+      // Eğer sessionStorage'da authenticated varsa zaten startApp çağrılır, yoksa authenticate çalışır.
+      // Ama burada doğrudan authenticate çağırıyoruz.
+      if (sessionStorage.getItem('authenticated') === 'true') {
+        startApp();
+      } else {
+        authenticate();
+      }
+
     })();
   </script>
 </body>
