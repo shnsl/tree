@@ -1,80 +1,657 @@
 <!DOCTYPE html>
-<html>
+<html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Varlık ve Süreç Yönetim Haritası</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    body { margin: 0; font-family: sans-serif; background: #f1f5f9; }
-    #canvas { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
-    .card { position: absolute; padding: 16px 24px; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 2px solid #10b981; cursor: pointer; }
+    /* (Stiller aynı, kısaltıldı) */
+    body { font-family: 'Plus Jakarta Sans', sans-serif; transition: background-color 0.3s ease, color 0.3s ease; touch-action: none; }
+    .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+    .tree-branch { position: relative; }
+    .tree-branch::before { content: ''; position: absolute; left: -18px; top: 22px; width: 18px; height: 2px; background-color: #cbd5e1; }
+    .tree-branch::after { content: ''; position: absolute; left: -18px; top: 0; width: 2px; height: 100%; background-color: #cbd5e1; }
+    .tree-branch:last-child::after { height: 22px; }
+    .node-card-dragover { outline: 2px dashed #3b82f6 !important; outline-offset: 2px; background-color: #eff6ff !important; }
+    body.dark-mode { background-color: #0f172a !important; color: #e2e8f0 !important; }
+    body.dark-mode .bg-white { background-color: #1e293b !important; }
+    body.dark-mode .bg-slate-100 { background-color: #0f172a !important; }
+    body.dark-mode .bg-slate-50 { background-color: #1e293b !important; }
+    body.dark-mode .bg-slate-200 { background-color: #334155 !important; }
+    body.dark-mode .border-slate-200 { border-color: #334155 !important; }
+    body.dark-mode .border-slate-100 { border-color: #1e293b !important; }
+    body.dark-mode .text-slate-900 { color: #f1f5f9 !important; }
+    body.dark-mode .text-slate-800 { color: #e2e8f0 !important; }
+    body.dark-mode .text-slate-700 { color: #cbd5e1 !important; }
+    body.dark-mode .text-slate-600 { color: #94a3b8 !important; }
+    body.dark-mode .text-slate-500 { color: #64748b !important; }
+    body.dark-mode .text-slate-400 { color: #475569 !important; }
+    body.dark-mode .bg-slate-900 { background-color: #0f172a !important; }
+    body.dark-mode .bg-slate-900\/50 { background-color: rgba(15, 23, 42, 0.8) !important; }
+    body.dark-mode .bg-slate-900\/95 { background-color: #0f172a !important; }
+    body.dark-mode .hover\:bg-slate-100:hover { background-color: #334155 !important; }
+    body.dark-mode .hover\:bg-slate-200:hover { background-color: #475569 !important; }
+    body.dark-mode .hover\:bg-slate-50:hover { background-color: #1e293b !important; }
+    body.dark-mode .hover\:border-slate-300:hover { border-color: #475569 !important; }
+    body.dark-mode .shadow-xs { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.5) !important; }
+    body.dark-mode .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.6) !important; }
+    body.dark-mode .shadow-md { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.7) !important; }
+    body.dark-mode .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.8) !important; }
+    body.dark-mode .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9) !important; }
+    body.dark-mode .bg-violet-50\/70 { background-color: #2e1065 !important; }
+    body.dark-mode .bg-amber-50\/30 { background-color: #451a03 !important; }
+    body.dark-mode .bg-emerald-50 { background-color: #064e3b !important; }
+    body.dark-mode .bg-blue-50 { background-color: #172554 !important; }
+    body.dark-mode .bg-violet-50 { background-color: #2e1065 !important; }
+    body.dark-mode .bg-rose-50 { background-color: #4c0519 !important; }
+    body.dark-mode .bg-amber-50 { background-color: #451a03 !important; }
+    body.dark-mode .bg-indigo-50 { background-color: #1e1b4b !important; }
+    body.dark-mode .bg-slate-50\/80 { background-color: #1e293b !important; }
+    body.dark-mode .bg-white\/95 { background-color: #1e293b !important; backdrop-filter: blur(4px); }
+    body.dark-mode .ring-amber-400 { --tw-ring-color: #f59e0b; }
+    body.dark-mode .border-amber-500 { border-color: #f59e0b; }
+    body.dark-mode .text-amber-900 { color: #fbbf24; }
+    body.dark-mode .bg-amber-100 { background-color: #78350f; }
+    body.dark-mode .text-amber-800 { color: #fcd34d; }
+    body.dark-mode .bg-rose-100 { background-color: #4c0519; }
+    body.dark-mode .text-rose-800 { color: #fda4af; }
+    body.dark-mode #canvas-container { background-image: radial-gradient(#334155 1px, transparent 1px) !important; }
+    body.dark-mode .bg-emerald-600 { background-color: #059669 !important; }
+    body.dark-mode .hover\:bg-emerald-700:hover { background-color: #047857 !important; }
+    body.dark-mode .bg-violet-600 { background-color: #7c3aed !important; }
+    body.dark-mode .hover\:bg-violet-700:hover { background-color: #6d28d9 !important; }
+    body.dark-mode .bg-slate-800 { background-color: #1e293b !important; }
+    body.dark-mode .ring-violet-500 { --tw-ring-color: #8b5cf6; }
+    body.dark-mode .border-violet-500 { border-color: #8b5cf6; }
+    body.dark-mode .text-violet-300 { color: #c4b5fd; }
+    body.dark-mode .bg-violet-500 { background-color: #8b5cf6; }
+    body.dark-mode .bg-violet-600 { background-color: #7c3aed; }
+    body.dark-mode .hover\:bg-violet-50:hover { background-color: #2e1065; }
+    body.dark-mode .text-emerald-700 { color: #34d399; }
+    body.dark-mode .hover\:text-emerald-300:hover { color: #6ee7b7; }
+    body.dark-mode .hover\:bg-emerald-50:hover { background-color: #064e3b; }
+    body.dark-mode .border-emerald-200 { border-color: #065f46; }
+    body.dark-mode .border-emerald-300 { border-color: #047857; }
+    body.dark-mode .bg-emerald-50\/70 { background-color: #064e3b; }
+    body.dark-mode .text-blue-700 { color: #60a5fa; }
+    body.dark-mode .hover\:bg-blue-50:hover { background-color: #172554; }
+    body.dark-mode .border-blue-200 { border-color: #1e3a8a; }
+    body.dark-mode .text-violet-700 { color: #a78bfa; }
+    body.dark-mode .border-violet-200 { border-color: #4c1d95; }
+    body.dark-mode .hover\:bg-rose-50:hover { background-color: #4c0519; }
+    body.dark-mode .text-rose-600 { color: #fb7185; }
+    body.dark-mode .hover\:text-rose-700:hover { color: #f43f5e; }
+    body.dark-mode .border-rose-200 { border-color: #881337; }
+    body.dark-mode .bg-slate-900\/50 { background-color: rgba(15, 23, 42, 0.85); }
+    body.dark-mode .modal-field-row input { background-color: #0f172a !important; border-color: #334155 !important; color: #e2e8f0 !important; }
+    body.dark-mode .modal-field-row input:focus { background-color: #1e293b !important; }
+    body.dark-mode select { background-color: #0f172a !important; border-color: #334155 !important; color: #e2e8f0 !important; }
+    body.dark-mode textarea { background-color: #0f172a !important; border-color: #334155 !important; color: #e2e8f0 !important; }
+    body.dark-mode input:not(.modal-field-row input) { background-color: #0f172a !important; border-color: #334155 !important; color: #e2e8f0 !important; }
+    body.dark-mode input:not(.modal-field-row input):focus { background-color: #1e293b !important; }
+    body.dark-mode .bg-white.rounded-xl.shadow-sm { background-color: #1e293b !important; border-color: #334155 !important; color: #e2e8f0 !important; }
+    body.dark-mode .bg-slate-50\/80.rounded-b-xl { background-color: #0f172a !important; border-color: #334155 !important; }
+    body.dark-mode .bg-white.rounded-xl.border { background-color: #1e293b !important; border-color: #334155 !important; }
+    body.dark-mode .bg-white.p-3\.5.rounded-xl.border { background-color: #1e293b !important; }
+    body.dark-mode .bg-white.rounded-2xl.p-6 { background-color: #1e293b !important; border-color: #334155 !important; }
+    body.dark-mode .bg-slate-50.p-1\.5.rounded.border { background-color: #0f172a !important; border-color: #334155 !important; }
+    .search-nav-btn { user-select: none; }
+    .search-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    #loading-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.5s ease; }
+    #loading-overlay.hidden { opacity: 0; pointer-events: none; }
+    .loader { width: 48px; height: 48px; border: 4px solid #e2e8f0; border-top-color: #10b981; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
-  <div id="app">
-    <div id="canvas"></div>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay">
+    <div class="flex flex-col items-center gap-4">
+      <div class="loader"></div>
+      <p class="text-white font-bold text-sm">Veri yükleniyor...</p>
+    </div>
   </div>
 
+  <!-- ============================================================ -->
+  <!-- ANA UYGULAMA -->
+  <!-- ============================================================ -->
+
+  <header class="bg-white border-b border-slate-200 px-4 py-2.5 flex flex-wrap items-center justify-between z-30 shadow-xs gap-3 transition-colors">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">🌿</div>
+      <div>
+        <h1 class="text-sm font-bold text-slate-900 leading-tight flex items-center gap-2 transition-colors">
+          <span>Varlık ve Süreç Yönetim Haritası</span>
+          <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors">☁️ Senkron</span>
+        </h1>
+        <p class="text-[11px] text-slate-500 transition-colors" id="header-stats">Yükleniyor...</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+      <button onclick="addNewTree()" class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-xs"><span>➕</span> <span>Yeni Ağaç</span></button>
+      <button onclick="openRelationModal()" class="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-xl transition shadow-xs"><span>🔗</span> <span>Çapraz İlişkiler (<span id="header-rel-count">0</span>)</span></button>
+      <div class="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-semibold transition-colors">
+        <button id="btn-view-canvas" onclick="setViewMode('canvas')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-slate-900 shadow-xs transition-colors"><span>🎨</span> <span>Tuval</span></button>
+        <button id="btn-view-outline" onclick="setViewMode('outline')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-colors"><span>📋</span> <span>Hiyerarşi</span></button>
+      </div>
+      <div class="relative flex items-center min-w-[180px] sm:min-w-[240px]">
+        <input type="text" id="search-input" placeholder="Düğüm, plaka veya alan ara..." oninput="handleSearch(this.value)" class="w-full bg-slate-100 border border-slate-200 text-slate-800 text-xs rounded-xl pl-8 pr-20 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-colors" />
+        <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">🔍</span>
+        <span id="search-count-badge" class="hidden absolute right-2 text-[11px] font-bold px-2 py-0.5 rounded-full select-none"></span>
+        <button id="search-prev-btn" onclick="navigateSearchResult(-1)" class="search-nav-btn absolute right-14 top-1/2 -translate-y-1/2 p-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold transition disabled:opacity-30 disabled:cursor-not-allowed hidden" title="Önceki sonuç (↑)">▲</button>
+        <button id="search-next-btn" onclick="navigateSearchResult(1)" class="search-nav-btn absolute right-8 top-1/2 -translate-y-1/2 p-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold transition disabled:opacity-30 disabled:cursor-not-allowed hidden" title="Sonraki sonuç (↓)">▼</button>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <div class="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-semibold transition-colors">
+        <button onclick="handleZoom(-0.15)" class="p-1.5 hover:bg-white rounded-lg text-slate-700 transition-colors" title="Uzaklaştır">➖</button>
+        <span id="zoom-text" class="px-2 font-mono text-slate-600 min-w-[46px] text-center text-[11px] transition-colors">100%</span>
+        <button onclick="handleZoom(0.15)" class="p-1.5 hover:bg-white rounded-lg text-slate-700 transition-colors" title="Yakınlaştır">➕</button>
+        <button onclick="handleZoomReset()" class="px-2 py-1 hover:bg-white rounded-lg text-slate-600 transition-colors text-[11px]" title="Tuvali sıfırla (zoom + konum)">Sıfırla</button>
+      </div>
+      <button onclick="setCanvasSize()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition shadow-xs border border-indigo-500"><span>🖼️</span> <span>Tuval Boyutu</span></button>
+      <button onclick="toggleDarkMode()" id="theme-toggle" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition shadow-xs border border-slate-600"><span id="theme-icon">🌙</span> <span id="theme-text">Koyu Mod</span></button>
+      <button onclick="uploadJSON()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition shadow-xs border border-blue-500"><span>📤</span> <span>JSON Yükle</span></button>
+      <button onclick="downloadJSON()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition shadow-xs"><span>💾</span> <span>JSON İndir</span></button>
+    </div>
+  </header>
+
+  <main class="flex-1 relative overflow-hidden bg-slate-100 transition-colors">
+    <div id="canvas-container" class="absolute inset-0 overflow-hidden cursor-default" style="background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 24px 24px;">
+      <div id="canvas-stage" class="absolute origin-top-left" style="width: 10000px; height: 10000px;">
+        <div id="nodes-layer" class="absolute inset-0" style="z-index: 20;"></div>
+        <div id="tree-headers-layer" class="absolute inset-0" style="z-index: 10;"></div>
+        <svg id="canvas-svg" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 1;"></svg>
+      </div>
+      <div class="absolute bottom-4 left-4 z-30 flex items-center gap-2 bg-white/95 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm text-xs text-slate-600 transition-colors">
+        <span class="font-bold text-slate-800 transition-colors">İpuçları:</span>
+        <span>🖱️ Tuvali kaydırmak için boşluğa sürükleyin</span>
+        <span class="text-slate-300">|</span>
+        <span>➕ Kartlardaki (+) ile alt dal, (🌿) ile kardeş ekleyin</span>
+        <span class="text-slate-300">|</span>
+        <span>🔗 Kartın sağındaki mor noktadan diğer karta çapraz ilişki bağlayın</span>
+      </div>
+      <div id="relation-connecting-bar" class="hidden absolute top-4 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 text-white px-4 py-2 rounded-2xl shadow-xl border border-violet-500/50 flex items-center gap-3 text-xs backdrop-blur-md">
+        <span class="text-base animate-pulse">🔗</span>
+        <div>
+          <span class="font-bold text-violet-300" id="rel-conn-source-name">Kaynak Düğüm</span>
+          <span class="text-slate-300"> &rarr; Çapraz bağlanacak hedef düğüme tıklayın</span>
+        </div>
+        <button onclick="cancelRelationConnect()" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold rounded-lg transition">İptal (ESC)</button>
+      </div>
+    </div>
+    <div id="outline-container" class="hidden absolute inset-0 overflow-y-auto p-6 md:p-10 custom-scroll">
+      <div class="max-w-4xl mx-auto space-y-6" id="outline-content"></div>
+    </div>
+
+    <!-- Modallar (kısaltıldı) -->
+    <div id="relation-modal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">...</div>
+    <div id="node-modal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">...</div>
+  </main>
+
+  <!-- Default Project Data (fallback) -->
+  <script id="project-data" type="application/json">
+    {
+      "version": "1.0.0",
+      "projectName": "Varlık ve Süreç Yönetim Haritası",
+      "lastModified": "2026-08-28T00:00:00.000Z",
+      "trees": [
+        {
+          "id": "tree-assets",
+          "name": "Varlıklarım",
+          "x": 277,
+          "y": 32,
+          "rootNode": {
+            "id": "node-varliklarim",
+            "title": "Varlıklarım",
+            "subtitle": "Tüm Şirket & Bireysel Varlıklar",
+            "description": "Tüm taşınır, taşınmaz ve operasyonel ekipman envanteri",
+            "icon": "box",
+            "color": "emerald",
+            "collapsed": false,
+            "fields": [],
+            "tags": ["Ana Ağaç", "Envanter"],
+            "children": []
+          }
+        }
+      ],
+      "relations": []
+    }
+  </script>
+
+  <!-- ANA UYGULAMA -->
   <script>
-    // 🔥 Firebase Config (senin)
-    const firebaseConfig = {
-      apiKey: "AIzaSyDCq3E5DieTAZy0gB8xG1kdJPC3v2JZWSo",
-      authDomain: "evdeftr27.firebaseapp.com",
-      databaseURL: "https://evdeftr27-default-rtdb.firebaseio.com",
-      projectId: "evdeftr27",
-      storageBucket: "evdeftr27.appspot.com",
-      messagingSenderId: "51532098566",
-      appId: "1:51532098566:web:4b821a587080fd25ada787"
-    };
+    (function() {
+      // ============================================================
+      // FİREBASE CONFIG
+      // ============================================================
+      const firebaseConfig = {
+        apiKey: "AIzaSyDCq3E5DieTAZy0gB8xG1kdJPC3v2JZWSo",
+        authDomain: "evdeftr27.firebaseapp.com",
+        databaseURL: "https://evdeftr27-default-rtdb.firebaseio.com",
+        projectId: "evdeftr27",
+        storageBucket: "evdeftr27.appspot.com",
+        messagingSenderId: "51532098566",
+        appId: "1:51532098566:web:4b821a587080fd25ada787",
+        measurementId: "G-GXJ8K3ZQ9T"
+      };
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.database();
+      const DB_PATH = 'treeData';
+      const dataRef = db.ref(DB_PATH);
+      const accessCodeRef = db.ref('accessCode');
 
-    const canvas = document.getElementById('canvas');
-
-    // Varsayılan veri (eğer Firebase boşsa)
-    const defaultData = {
-      trees: [
-        { id: 't1', name: 'Varlıklar', x: 100, y: 100 },
-        { id: 't2', name: 'Bütçe', x: 400, y: 100 }
-      ]
-    };
-
-    function render(data) {
-      canvas.innerHTML = '';
-      data.trees.forEach(tree => {
-        const div = document.createElement('div');
-        div.className = 'card';
-        div.style.left = tree.x + 'px';
-        div.style.top = tree.y + 'px';
-        div.textContent = '🌳 ' + tree.name;
-        canvas.appendChild(div);
-      });
-    }
-
-    // Firebase'den veri çek
-    const dataRef = db.ref('treeData');
-    dataRef.once('value').then(snap => {
-      const val = snap.val();
-      if (val && val.trees) {
-        render(val);
-      } else {
-        // Firebase boş, varsayılanı yaz
-        dataRef.set(defaultData);
-        render(defaultData);
+      // ============================================================
+      // GİRİŞ KONTROLÜ (prompt ile)
+      // ============================================================
+      function askForCode() {
+        const code = prompt('Lütfen 6 haneli güvenlik kodunu girin:');
+        if (code === null) return askForCode();
+        if (code.length !== 6 || !/^\d+$/.test(code)) {
+          alert('Kod 6 haneli sayısal olmalıdır.');
+          return askForCode();
+        }
+        return code;
       }
-    }).catch(err => {
-      console.error('Hata:', err);
-      render(defaultData);
-    });
 
-    // Giriş kodu (basit)
-    const code = prompt('Kodu girin (300389):');
-    if (code !== '300389') {
-      document.body.innerHTML = '<h1 style="text-align:center;margin-top:50px;">❌ Geçersiz kod</h1>';
-    }
+      function authenticate() {
+        const isAuth = sessionStorage.getItem('authenticated') === 'true';
+        if (isAuth) { startApp(); return; }
+
+        accessCodeRef.once('value').then((snapshot) => {
+          const storedCode = snapshot.val() || '300389';
+          let userCode = askForCode();
+          while (userCode !== storedCode) {
+            alert('❌ Geçersiz kod! Lütfen tekrar deneyin.');
+            userCode = askForCode();
+          }
+          sessionStorage.setItem('authenticated', 'true');
+          location.reload();
+        }).catch((err) => {
+          console.error('Firebase kodu okuma hatası:', err);
+          alert('Firebase bağlantı hatası! Lütfen internet bağlantınızı kontrol edin.');
+          const storedCode = '300389';
+          let userCode = askForCode();
+          while (userCode !== storedCode) {
+            alert('❌ Geçersiz kod! Lütfen tekrar deneyin.');
+            userCode = askForCode();
+          }
+          sessionStorage.setItem('authenticated', 'true');
+          location.reload();
+        });
+      }
+
+      // ============================================================
+      // ANA UYGULAMA STATE
+      // ============================================================
+      let project = null;
+      let viewMode = 'canvas';
+      let panX = 0, panY = 0;
+      let zoom = 1.0;
+      let searchQuery = '';
+      let isPanning = false;
+      let panStartX = 0, panStartY = 0;
+      let selectedNodeId = null;
+      let canvasWidth = 10000, canvasHeight = 10000;
+      let relationConnectingSourceId = null;
+      let mouseCanvasX = 0, mouseCanvasY = 0;
+      let selectedRelColor = '#8b5cf6';
+      let searchResults = [], currentSearchIndex = -1;
+      let activeTreeDrag = null;
+      let editingNodeId = null;
+      let draggedNodeId = null;
+
+      const CARD_WIDTH = 260;
+      const HORIZONTAL_SPACING = 56;
+      const VERTICAL_GAP = 20;
+
+      // ============================================================
+      // YARDIMCI FONKSİYONLAR
+      // ============================================================
+      function escapeHtml(str) { if (!str) return ''; return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+
+      function generateId(prefix = 'node') { return prefix + '_' + Math.random().toString(36).substr(2, 9); }
+
+      // ============================================================
+      // FİREBASE OKU / YAZ
+      // ============================================================
+      function loadDataFromFirebase() {
+        const overlay = document.getElementById('loading-overlay');
+        overlay.classList.remove('hidden');
+
+        dataRef.once('value').then((snapshot) => {
+          const val = snapshot.val();
+          if (val) {
+            project = val;
+            console.log('✅ Firebase verisi başarıyla çekildi.');
+          } else {
+            console.warn('⚠️ Firebase\'de veri yok, varsayılan kullanılıyor.');
+            project = JSON.parse(document.getElementById('project-data').textContent);
+            dataRef.set(project).catch(err => console.error('Yazma hatası:', err));
+          }
+          if (!project.trees || project.trees.length === 0) {
+            project.trees = [{
+              id: 'tree-default',
+              name: 'Varsayılan Ağaç',
+              x: 100,
+              y: 100,
+              rootNode: {
+                id: 'node-default',
+                title: 'Ana Düğüm',
+                subtitle: 'Varsayılan',
+                icon: 'box',
+                color: 'emerald',
+                collapsed: false,
+                fields: [],
+                tags: ['Varsayılan'],
+                children: []
+              }
+            }];
+          }
+          overlay.classList.add('hidden');
+          updateStats();
+          setTimeout(() => {
+            renderCanvas();
+          }, 100);
+        }).catch((err) => {
+          console.error('❌ Firebase veri okuma hatası:', err);
+          overlay.classList.add('hidden');
+          project = JSON.parse(document.getElementById('project-data').textContent);
+          if (!project.trees || project.trees.length === 0) {
+            project.trees = [{
+              id: 'tree-default',
+              name: 'Varsayılan Ağaç',
+              x: 100,
+              y: 100,
+              rootNode: {
+                id: 'node-default',
+                title: 'Ana Düğüm',
+                subtitle: 'Varsayılan',
+                icon: 'box',
+                color: 'emerald',
+                collapsed: false,
+                fields: [],
+                tags: ['Varsayılan'],
+                children: []
+              }
+            }];
+          }
+          updateStats();
+          setTimeout(() => {
+            renderCanvas();
+          }, 100);
+          alert('Firebase bağlantı hatası! Varsayılan veri yüklendi.');
+        });
+      }
+
+      function saveProjectToFirebase() {
+        if (!project) return;
+        project.lastModified = new Date().toISOString();
+        dataRef.set(project).catch((err) => {
+          console.error('Veri yazma hatası:', err);
+          alert('Değişiklikler kaydedilemedi.');
+        });
+        try { localStorage.setItem('firebase_backup', JSON.stringify(project)); } catch (e) {}
+        updateStats();
+      }
+
+      function saveProject() { saveProjectToFirebase(); }
+
+      // ============================================================
+      // BASİT RENDER CANVAS (Test'teki gibi)
+      // ============================================================
+      function renderCanvas() {
+        if (!project) {
+          console.warn('⚠️ renderCanvas: project boş.');
+          return;
+        }
+        try {
+          console.log('🔄 renderCanvas çalışıyor, ağaç sayısı:', project.trees.length);
+
+          const nodesLayer = document.getElementById('nodes-layer');
+          const treeHeadersLayer = document.getElementById('tree-headers-layer');
+          const stage = document.getElementById('canvas-stage');
+
+          if (!nodesLayer || !treeHeadersLayer || !stage) {
+            console.warn('⚠️ DOM elemanları bulunamadı!');
+            return;
+          }
+
+          // Transform'u uygula
+          stage.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})`;
+          document.getElementById('canvas-container').style.backgroundPosition = `${panX}px ${panY}px`;
+          document.getElementById('canvas-container').style.backgroundSize = `${24 * zoom}px ${24 * zoom}px`;
+
+          // Ağaç başlıkları (basit)
+          treeHeadersLayer.innerHTML = project.trees.map(tree => `
+            <div style="position:absolute; left:${tree.x}px; top:${tree.y - 48}px; background:#1e293b; color:white; padding:6px 14px; border-radius:12px; font-size:13px; font-weight:bold; z-index:10; cursor:move;">
+              ${escapeHtml(tree.name)}
+            </div>
+          `).join('');
+
+          // Kartları basitçe oluştur
+          let cardsHtml = '';
+          project.trees.forEach((tree, idx) => {
+            const node = tree.rootNode;
+            const colors = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444'];
+            const color = colors[idx % colors.length];
+            cardsHtml += `
+              <div style="position:absolute; left:${tree.x}px; top:${tree.y}px; width:260px; background:white; border-radius:12px; border:2px solid ${color}; box-shadow:0 4px 12px rgba(0,0,0,0.08); padding:14px 18px; z-index:20; cursor:pointer; transition:0.2s;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="font-size:22px;">${getIconEmoji(node.icon)}</span>
+                  <span style="font-weight:bold; font-size:15px; color:#0f172a;">${escapeHtml(node.title)}</span>
+                </div>
+                ${node.subtitle ? `<div style="font-size:12px; color:#64748b; margin-top:2px;">${escapeHtml(node.subtitle)}</div>` : ''}
+                <div style="margin-top:8px; font-size:11px; color:#94a3b8;">${node.children?.length || 0} alt dal</div>
+              </div>
+            `;
+          });
+
+          nodesLayer.innerHTML = cardsHtml;
+          console.log('✅ renderCanvas tamamlandı, kart sayısı:', project.trees.length);
+
+        } catch (e) {
+          console.error('❌ renderCanvas hatası:', e);
+        }
+      }
+
+      function getIconEmoji(name) {
+        const icons = { folder:'📁', box:'📦', car:'🚗', tractor:'🚜', shield:'🛡️', calendar:'📅', wrench:'🔧', building:'🏢', dollar:'💵', tag:'🏷️', file:'📄', user:'👤', users:'👥', database:'🗄️' };
+        return icons[name?.toLowerCase()] || '📦';
+      }
+
+      // ============================================================
+      // RENDER OUTLINE (Basit)
+      // ============================================================
+      function renderOutline() {
+        if (!project) {
+          console.warn('⚠️ renderOutline: project boş.');
+          return;
+        }
+        try {
+          const container = document.getElementById('outline-content');
+          if (!container) return;
+          const renderNode = (node) => {
+            return `<div style="padding:8px 0; border-bottom:1px solid #e2e8f0;">
+              <span style="font-weight:bold;">${escapeHtml(node.title)}</span>
+              ${node.subtitle ? ` <span style="color:#64748b;">- ${escapeHtml(node.subtitle)}</span>` : ''}
+              ${node.children?.length ? `<div style="padding-left:20px;">${node.children.map(c => renderNode(c)).join('')}</div>` : ''}
+            </div>`;
+          };
+          container.innerHTML = project.trees.map(tree => `
+            <div style="background:white; border-radius:16px; padding:16px; margin-bottom:16px; border:1px solid #e2e8f0;">
+              <h2 style="font-weight:bold; font-size:18px;">${escapeHtml(tree.name)}</h2>
+              <div style="margin-top:8px;">${renderNode(tree.rootNode)}</div>
+            </div>
+          `).join('');
+        } catch (e) {
+          console.error('❌ renderOutline hatası:', e);
+        }
+      }
+
+      // ============================================================
+      // VIEW MODE
+      // ============================================================
+      window.setViewMode = function(mode) {
+        viewMode = mode;
+        const canvasEl = document.getElementById('canvas-container');
+        const outlineEl = document.getElementById('outline-container');
+        const btnCanvas = document.getElementById('btn-view-canvas');
+        const btnOutline = document.getElementById('btn-view-outline');
+        if (mode === 'canvas') {
+          canvasEl.classList.remove('hidden');
+          outlineEl.classList.add('hidden');
+          btnCanvas.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-slate-900 shadow-xs transition';
+          btnOutline.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition';
+          renderCanvas();
+        } else {
+          canvasEl.classList.add('hidden');
+          outlineEl.classList.remove('hidden');
+          btnCanvas.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition';
+          btnOutline.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-slate-900 shadow-xs transition';
+          renderOutline();
+        }
+      };
+
+      // ============================================================
+      // TEMEL FONKSİYONLAR
+      // ============================================================
+      window.addNewTree = function() {
+        const name = prompt('Yeni ağaç adı girin:', 'Yeni Ağaç');
+        if (!name?.trim()) return;
+        let maxY = 40; project.trees.forEach(t => { if (t.y > maxY) maxY = t.y; });
+        const newTree = {
+          id: generateId('tree'),
+          name: name.trim(),
+          x: Math.floor(Math.random() * 800) + 40,
+          y: maxY + 400 + Math.floor(Math.random() * 200),
+          rootNode: {
+            id: generateId('node'),
+            title: name.trim(),
+            subtitle: 'Ana Kategori',
+            icon: 'folder',
+            color: 'emerald',
+            collapsed: false,
+            fields: [],
+            tags: [],
+            children: []
+          }
+        };
+        project.trees.push(newTree);
+        saveProject();
+        if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+      };
+
+      window.deleteTree = function(treeId) {
+        const tree = project.trees.find(t => t.id === treeId);
+        if (!tree) return;
+        if (!confirm(`"${tree.name}" ağacını sil?`)) return;
+        project.trees = project.trees.filter(t => t.id !== treeId);
+        saveProject();
+        if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+      };
+
+      window.handleZoom = function(delta) {
+        zoom = Math.max(0.3, Math.min(2.0, parseFloat((zoom + delta).toFixed(2))));
+        document.getElementById('zoom-text').textContent = Math.round(zoom * 100) + '%';
+        renderCanvas();
+      };
+
+      window.handleZoomReset = function() {
+        zoom = 1.0;
+        panX = 0;
+        panY = 0;
+        document.getElementById('zoom-text').textContent = '100%';
+        renderCanvas();
+      };
+
+      window.toggleDarkMode = function() {
+        const body = document.body;
+        const isDark = body.classList.toggle('dark-mode');
+        document.getElementById('theme-icon').textContent = isDark ? '☀️' : '🌙';
+        document.getElementById('theme-text').textContent = isDark ? 'Açık Mod' : 'Koyu Mod';
+        localStorage.setItem('theme-preference', isDark ? 'dark' : 'light');
+      };
+
+      window.downloadJSON = function() {
+        const str = JSON.stringify(project, null, 2);
+        const blob = new Blob([str], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = (project.projectName || 'agac-projesi').toLowerCase().replace(/\s+/g, '-') + '.json';
+        a.click();
+      };
+
+      window.setCanvasSize = function() {
+        const current = canvasWidth;
+        const input = prompt(`Tuval boyutunu gir (px, örn: 10000):`, String(current));
+        if (!input) return;
+        const size = parseInt(input);
+        if (isNaN(size) || size < 100) { alert('Geçerli bir sayı girin.'); return; }
+        canvasWidth = size; canvasHeight = size;
+        renderCanvas();
+        try { localStorage.setItem('canvas_size_' + window.location.pathname, String(size)); } catch (e) {}
+      };
+
+      // ============================================================
+      // SEARCH (Basit)
+      // ============================================================
+      window.handleSearch = function(val) {
+        searchQuery = val.trim();
+        // Basit arama
+        if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+      };
+
+      window.navigateSearchResult = function(dir) {};
+
+      // ============================================================
+      // UPDATE STATS
+      // ============================================================
+      function updateStats() {
+        if (!project) return;
+        if (!project.relations) project.relations = [];
+        let totalNodes = 0;
+        const count = (n) => { totalNodes++; if (n.children) n.children.forEach(count); };
+        project.trees.forEach(t => count(t.rootNode));
+        const statsEl = document.getElementById('header-stats');
+        if (statsEl) statsEl.innerHTML = `Toplam ${project.trees.length} Kök Ağaç &bull; ${totalNodes} Düğüm &bull; ${project.relations.length} Çapraz İlişki &bull; ☁️ Senkron`;
+        document.getElementById('header-rel-count').textContent = String(project.relations.length);
+      }
+
+      // ============================================================
+      // BAŞLAT
+      // ============================================================
+      function startApp() {
+        if (localStorage.getItem('theme-preference') === 'dark') {
+          document.body.classList.add('dark-mode');
+          document.getElementById('theme-icon').textContent = '☀️';
+          document.getElementById('theme-text').textContent = 'Açık Mod';
+        }
+        try {
+          const savedSize = localStorage.getItem('canvas_size_' + window.location.pathname);
+          if (savedSize) { const size = parseInt(savedSize); if (!isNaN(size) && size >= 100) { canvasWidth = size; canvasHeight = size; } }
+        } catch (e) {}
+        loadDataFromFirebase();
+      }
+
+      if (sessionStorage.getItem('authenticated') === 'true') {
+        startApp();
+      } else {
+        authenticate();
+      }
+
+    })();
   </script>
 </body>
 </html>
