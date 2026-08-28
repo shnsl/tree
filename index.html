@@ -11,7 +11,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    /* (Stiller aynı, kısaltıldı) */
     body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; background: #f1f5f9; touch-action: none; user-select: none; }
     #canvas-container { position: relative; width: 100vw; height: 100vh; overflow: hidden; background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 24px 24px; }
     #canvas-stage { position: absolute; top: 0; left: 0; width: 10000px; height: 10000px; transform-origin: top left; }
@@ -29,17 +28,15 @@
     .btn-dark:hover { background: #0f172a; }
     .btn-blue { background: #3b82f6; color: white; }
     .btn-blue:hover { background: #2563eb; }
-    .btn-violet { background: #8b5cf6; color: white; }
-    .btn-violet:hover { background: #7c3aed; }
-    .btn-orange { background: #f59e0b; color: white; }
-    .btn-orange:hover { background: #d97706; }
-    .tip { position: absolute; bottom: 20px; left: 20px; background: white/95; backdrop-filter: blur(4px); padding: 8px 16px; border-radius: 12px; font-size: 12px; color: #475569; border: 1px solid #e2e8f0; z-index: 30; }
+    .btn-purple { background: #8b5cf6; color: white; }
+    .btn-purple:hover { background: #7c3aed; }
+    .tip { position: absolute; bottom: 20px; left: 20px; background: rgba(255,255,255,0.95); backdrop-filter: blur(4px); padding: 8px 16px; border-radius: 12px; font-size: 12px; color: #475569; border: 1px solid #e2e8f0; z-index: 30; }
     .loading-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.7); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.5s; }
     .loading-overlay.hidden { opacity: 0; pointer-events: none; }
     .loader { width: 48px; height: 48px; border: 4px solid #e2e8f0; border-top-color: #10b981; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .status-badge { font-size: 10px; font-weight: 600; padding: 2px 10px; border-radius: 20px; background: #d1fae5; color: #065f46; }
-    .status-badge.error { background: #fee2e2; color: #991b1b; }
+    .status-badge { font-size: 10px; padding: 2px 10px; border-radius: 20px; background: #d1fae5; color: #065f46; }
+    .status-badge.offline { background: #fee2e2; color: #991b1b; }
   </style>
 </head>
 <body>
@@ -50,18 +47,17 @@
 
   <!-- Header -->
   <div id="header">
-    <div style="display:flex; align-items:center; gap:12px;">
+    <div>
       <h1>🌿 Varlık ve Süreç Yönetim Haritası</h1>
-      <span class="status-badge" id="sync-status">☁️ Senkron</span>
+      <span id="header-stats">Yükleniyor...</span>
+      <span id="sync-status" class="status-badge" style="margin-left:8px;">☁️ Senkron</span>
     </div>
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
       <button class="btn btn-green" onclick="addNewTree()">➕ Yeni Ağaç</button>
-      <button class="btn btn-violet" onclick="openRelationModal()">🔗 İlişkiler (<span id="header-rel-count">0</span>)</button>
       <button class="btn btn-dark" onclick="toggleDarkMode()">🌙 Koyu Mod</button>
       <button class="btn btn-blue" onclick="downloadJSON()">💾 JSON İndir</button>
-      <button class="btn btn-orange" onclick="uploadJSON()">📤 JSON Yükle</button>
+      <button class="btn btn-purple" onclick="uploadJSON()">📤 JSON Yükle</button>
     </div>
-    <div style="font-size:11px; color:#94a3b8;" id="header-stats">Yükleniyor...</div>
   </div>
 
   <!-- Canvas -->
@@ -72,37 +68,10 @@
     <div class="tip">🖱️ Kartları sürükleyin, tıklayarak düzenleyin</div>
   </div>
 
-  <!-- MODAL: İlişki Ekleme (basit) -->
-  <div id="relation-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px); z-index:100; align-items:center; justify-content:center;">
-    <div style="background:white; border-radius:20px; padding:24px; max-width:500px; width:90%; max-height:80vh; overflow-y:auto;">
-      <h2 style="font-size:18px; font-weight:700; margin-bottom:16px;">🔗 Çapraz İlişki Ekle</h2>
-      <div style="margin-bottom:12px;">
-        <label style="font-weight:600; font-size:13px;">Kaynak Ağaç</label>
-        <select id="rel-source" style="width:100%; padding:8px 12px; border:1px solid #e2e8f0; border-radius:8px; margin-top:4px;"></select>
-      </div>
-      <div style="margin-bottom:12px;">
-        <label style="font-weight:600; font-size:13px;">Hedef Ağaç</label>
-        <select id="rel-target" style="width:100%; padding:8px 12px; border:1px solid #e2e8f0; border-radius:8px; margin-top:4px;"></select>
-      </div>
-      <div style="margin-bottom:16px;">
-        <label style="font-weight:600; font-size:13px;">İlişki Etiketi</label>
-        <input id="rel-label" type="text" placeholder="Örn: Bağlı, Sahibi, Parçası" style="width:100%; padding:8px 12px; border:1px solid #e2e8f0; border-radius:8px; margin-top:4px;" />
-      </div>
-      <div style="display:flex; gap:8px; justify-content:flex-end;">
-        <button onclick="closeRelationModal()" style="padding:8px 20px; border:1px solid #e2e8f0; border-radius:8px; background:transparent; cursor:pointer;">İptal</button>
-        <button onclick="saveRelation()" style="padding:8px 20px; background:#8b5cf6; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600;">Kaydet</button>
-      </div>
-      <div id="relation-list" style="margin-top:16px; border-top:1px solid #e2e8f0; padding-top:12px;">
-        <div style="font-weight:600; font-size:13px; margin-bottom:8px;">Mevcut İlişkiler</div>
-        <div id="relation-list-items"></div>
-      </div>
-    </div>
-  </div>
-
   <script>
     (function() {
       // ============================================================
-      // FİREBASE CONFIG
+      // 🔥 FİREBASE CONFIG (SENİN VERİLERİN)
       // ============================================================
       const firebaseConfig = {
         apiKey: "AIzaSyDCq3E5DieTAZy0gB8xG1kdJPC3v2JZWSo",
@@ -111,7 +80,8 @@
         projectId: "evdeftr27",
         storageBucket: "evdeftr27.appspot.com",
         messagingSenderId: "51532098566",
-        appId: "1:51532098566:web:4b821a587080fd25ada787"
+        appId: "1:51532098566:web:4b821a587080fd25ada787",
+        measurementId: "G-GXJ8K3ZQ9T"
       };
 
       firebase.initializeApp(firebaseConfig);
@@ -158,6 +128,22 @@
               tags: [],
               children: []
             }
+          },
+          {
+            id: "tree3",
+            name: "Projeler",
+            x: 740,
+            y: 80,
+            rootNode: {
+              id: "node3",
+              title: "Aktif Projeler",
+              subtitle: "Devam eden projeler",
+              icon: "folder",
+              color: "blue",
+              fields: [],
+              tags: [],
+              children: []
+            }
           }
         ],
         relations: []
@@ -179,7 +165,7 @@
       const nodesLayer = document.getElementById('nodes-layer');
       const stage = document.getElementById('canvas-stage');
       const container = document.getElementById('canvas-container');
-      const statusBadge = document.getElementById('sync-status');
+      const syncStatus = document.getElementById('sync-status');
 
       // ============================================================
       // FİREBASE OKU / YAZ
@@ -188,20 +174,20 @@
         return new Promise((resolve) => {
           dataRef.once('value').then((snapshot) => {
             const val = snapshot.val();
-            if (val && val.trees) {
+            if (val) {
               project = val;
               isFirebaseConnected = true;
-              statusBadge.textContent = '☁️ Senkron';
-              statusBadge.className = 'status-badge';
+              syncStatus.textContent = '☁️ Senkron';
+              syncStatus.className = 'status-badge';
               resolve(true);
             } else {
               resolve(false);
             }
           }).catch((err) => {
-            console.error('Firebase okuma hatası:', err);
+            console.warn('Firebase okuma hatası:', err);
             isFirebaseConnected = false;
-            statusBadge.textContent = '⚠️ Senkron değil';
-            statusBadge.className = 'status-badge error';
+            syncStatus.textContent = '⚠️ Çevrimdışı';
+            syncStatus.className = 'status-badge offline';
             resolve(false);
           });
         });
@@ -209,24 +195,21 @@
 
       function saveToFirebase() {
         if (!project) return;
-        if (!isFirebaseConnected) {
-          // Firebase kapalıysa sadece localStorage'a kaydet
-          saveToLocal();
-          return;
-        }
         project.lastModified = new Date().toISOString();
-        dataRef.set(project).catch((err) => {
-          console.error('Firebase yazma hatası:', err);
+        dataRef.set(project).then(() => {
+          isFirebaseConnected = true;
+          syncStatus.textContent = '☁️ Senkron';
+          syncStatus.className = 'status-badge';
+        }).catch((err) => {
+          console.warn('Firebase yazma hatası:', err);
           isFirebaseConnected = false;
-          statusBadge.textContent = '⚠️ Senkron değil';
-          statusBadge.className = 'status-badge error';
-          saveToLocal();
+          syncStatus.textContent = '⚠️ Çevrimdışı';
+          syncStatus.className = 'status-badge offline';
         });
-        saveToLocal();
       }
 
       // ============================================================
-      // YEREL DEPOLAMA (Yedek)
+      // YEREL DEPOLAMA
       // ============================================================
       function saveToLocal() {
         try { localStorage.setItem('treeProject', JSON.stringify(project)); } catch(e) {}
@@ -244,12 +227,41 @@
       }
 
       // ============================================================
+      // KAYDET (Local + Firebase)
+      // ============================================================
+      function saveProject() {
+        saveToLocal();
+        saveToFirebase();
+        updateStats();
+      }
+
+      // ============================================================
+      // VERİ YÜKLE (Önce Firebase, sonra Local)
+      // ============================================================
+      async function loadProject() {
+        overlay.classList.remove('hidden');
+        const loaded = await loadFromFirebase();
+        if (!loaded) {
+          // Firebase'de veri yok, localStorage'dan dene
+          if (!loadFromLocal()) {
+            // Hiç veri yoksa varsayılanı kullan
+            project = JSON.parse(JSON.stringify(defaultProject));
+            saveToLocal();
+            saveToFirebase();
+          }
+        }
+        overlay.classList.add('hidden');
+        render();
+      }
+
+      // ============================================================
       // RENDER
       // ============================================================
       function render() {
         if (!project) return;
         if (!nodesLayer || !stage) return;
 
+        // Transform
         stage.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})`;
         container.style.backgroundPosition = `${panX}px ${panY}px`;
         container.style.backgroundSize = `${24 * zoom}px ${24 * zoom}px`;
@@ -269,20 +281,23 @@
                  ontouchstart="startDragTouch(event, '${tree.id}')">
               <div style="display:flex; align-items:center; gap:8px;">
                 <span style="font-size:22px;">${icon}</span>
-                <span style="font-weight:bold; font-size:15px; color:#0f172a;">${escapeHtml(node.title)}</span>
+                <span style="font-weight:bold; font-size:15px; color:${darkMode ? '#f1f5f9' : '#0f172a'};">${escapeHtml(node.title)}</span>
               </div>
               ${node.subtitle ? `<div style="font-size:12px; color:#64748b; margin-top:2px;">${escapeHtml(node.subtitle)}</div>` : ''}
               <div style="margin-top:8px; font-size:11px; color:#94a3b8;">${node.children?.length || 0} alt dal</div>
-              <div style="margin-top:6px; display:flex; gap:4px; flex-wrap:wrap;">
-                <button onclick="event.stopPropagation(); addChild('${tree.id}')" style="font-size:10px; padding:2px 10px; border-radius:6px; border:1px solid #e2e8f0; background:white; cursor:pointer;">➕ Alt Dal</button>
-                <button onclick="event.stopPropagation(); deleteTree('${tree.id}')" style="font-size:10px; padding:2px 10px; border-radius:6px; border:1px solid #ef4444; color:#ef4444; background:white; cursor:pointer;">🗑️ Sil</button>
-              </div>
             </div>
           `;
         }).join('');
 
+        // Karanlık modda kart arkaplanlarını güncelle
+        if (darkMode) {
+          document.querySelectorAll('.card').forEach(el => {
+            el.style.background = '#1e293b';
+            el.style.color = '#e2e8f0';
+          });
+        }
+
         updateStats();
-        updateRelationCount();
       }
 
       // ============================================================
@@ -294,44 +309,9 @@
         const newTitle = prompt('Düğüm başlığını değiştir:', tree.rootNode.title);
         if (newTitle && newTitle.trim()) {
           tree.rootNode.title = newTitle.trim();
-          saveToFirebase();
+          saveProject();
           render();
         }
-      };
-
-      // ============================================================
-      // ALT DAL EKLE
-      // ============================================================
-      window.addChild = function(treeId) {
-        const tree = project.trees.find(t => t.id === treeId);
-        if (!tree) return;
-        const name = prompt('Alt dal adı:');
-        if (!name?.trim()) return;
-        const newNode = {
-          id: 'node_' + Date.now(),
-          title: name.trim(),
-          subtitle: '',
-          icon: 'box',
-          color: 'emerald',
-          fields: [],
-          tags: [],
-          children: []
-        };
-        if (!tree.rootNode.children) tree.rootNode.children = [];
-        tree.rootNode.children.push(newNode);
-        saveToFirebase();
-        render();
-      };
-
-      // ============================================================
-      // AĞAÇ SİL
-      // ============================================================
-      window.deleteTree = function(treeId) {
-        if (!confirm('Bu ağacı silmek istediğinize emin misiniz?')) return;
-        project.trees = project.trees.filter(t => t.id !== treeId);
-        project.relations = (project.relations || []).filter(r => r.sourceId !== treeId && r.targetId !== treeId);
-        saveToFirebase();
-        render();
       };
 
       // ============================================================
@@ -366,7 +346,7 @@
 
       function onDragEnd() {
         if (dragData) {
-          saveToFirebase();
+          saveProject();
           dragData = null;
           document.querySelectorAll('.card').forEach(el => el.style.cursor = 'grab');
         }
@@ -411,7 +391,7 @@
 
       function onTouchDragEnd() {
         if (dragData) {
-          saveToFirebase();
+          saveProject();
           dragData = null;
         }
         document.removeEventListener('touchmove', onTouchDragMove);
@@ -443,92 +423,9 @@
           }
         };
         project.trees.push(newTree);
-        saveToFirebase();
+        saveProject();
         render();
       };
-
-      // ============================================================
-      // ÇAPRAZ İLİŞKİ YÖNETİMİ
-      // ============================================================
-      window.openRelationModal = function() {
-        const modal = document.getElementById('relation-modal');
-        modal.style.display = 'flex';
-
-        const sourceSelect = document.getElementById('rel-source');
-        const targetSelect = document.getElementById('rel-target');
-
-        const options = project.trees.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
-        sourceSelect.innerHTML = options;
-        targetSelect.innerHTML = options;
-
-        // İlişki listesini göster
-        renderRelationList();
-      };
-
-      window.closeRelationModal = function() {
-        document.getElementById('relation-modal').style.display = 'none';
-      };
-
-      function renderRelationList() {
-        const container = document.getElementById('relation-list-items');
-        if (!project.relations || project.relations.length === 0) {
-          container.innerHTML = '<div style="color:#94a3b8; font-size:13px;">Henüz ilişki yok</div>';
-          return;
-        }
-        container.innerHTML = project.relations.map((rel, idx) => {
-          const source = project.trees.find(t => t.id === rel.sourceId);
-          const target = project.trees.find(t => t.id === rel.targetId);
-          const sourceName = source ? source.name : 'Bilinmeyen';
-          const targetName = target ? target.name : 'Bilinmeyen';
-          return `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #f1f5f9;">
-              <span style="font-size:13px;">${escapeHtml(sourceName)} <span style="color:#94a3b8;">→</span> ${escapeHtml(targetName)} <span style="font-size:11px; color:#8b5cf6;">${escapeHtml(rel.label || 'Bağlı')}</span></span>
-              <button onclick="deleteRelation('${rel.id}')" style="font-size:11px; color:#ef4444; background:transparent; border:none; cursor:pointer;">✕</button>
-            </div>
-          `;
-        }).join('');
-      }
-
-      window.saveRelation = function() {
-        const sourceId = document.getElementById('rel-source').value;
-        const targetId = document.getElementById('rel-target').value;
-        const label = document.getElementById('rel-label').value.trim() || 'Bağlı';
-
-        if (sourceId === targetId) {
-          alert('Kaynak ve hedef aynı olamaz.');
-          return;
-        }
-
-        if (!project.relations) project.relations = [];
-        project.relations.push({
-          id: 'rel_' + Date.now(),
-          sourceId: sourceId,
-          targetId: targetId,
-          label: label
-        });
-
-        saveToFirebase();
-        renderRelationList();
-        updateRelationCount();
-        render();
-
-        document.getElementById('rel-label').value = '';
-        alert('İlişki eklendi!');
-      };
-
-      window.deleteRelation = function(relId) {
-        if (!confirm('İlişkiyi silmek istediğinize emin misiniz?')) return;
-        project.relations = (project.relations || []).filter(r => r.id !== relId);
-        saveToFirebase();
-        renderRelationList();
-        updateRelationCount();
-        render();
-      };
-
-      function updateRelationCount() {
-        const count = project.relations?.length || 0;
-        document.getElementById('header-rel-count').textContent = count;
-      }
 
       // ============================================================
       // JSON YÜKLE
@@ -536,7 +433,7 @@
       window.uploadJSON = function() {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.json';
+        input.accept = '.json,application/json';
         input.onchange = function(e) {
           const file = e.target.files[0];
           if (!file) return;
@@ -545,18 +442,18 @@
             try {
               const data = JSON.parse(ev.target.result);
               if (!data.trees || !Array.isArray(data.trees)) {
-                alert('Geçersiz JSON: "trees" dizisi eksik.');
-                return;
+                throw new Error('Geçersiz JSON: "trees" dizisi eksik.');
               }
               if (!data.relations || !Array.isArray(data.relations)) {
                 data.relations = [];
               }
               project = data;
-              saveToFirebase();
+              saveProject();
               render();
-              alert('JSON başarıyla yüklendi!');
+              alert('✅ JSON başarıyla yüklendi!');
             } catch (err) {
-              alert('Geçersiz JSON dosyası: ' + err.message);
+              alert('❌ Hata: Geçersiz JSON dosyası! Detay: ' + err.message);
+              console.error(err);
             }
           };
           reader.readAsText(file);
@@ -604,14 +501,11 @@
         document.body.style.color = darkMode ? '#e2e8f0' : '#0f172a';
         document.getElementById('header').style.background = darkMode ? '#1e293b' : 'white';
         document.getElementById('header').style.borderColor = darkMode ? '#334155' : '#e2e8f0';
-        document.querySelectorAll('.card').forEach(el => {
-          el.style.background = darkMode ? '#1e293b' : 'white';
-          el.style.color = darkMode ? '#e2e8f0' : '#0f172a';
-        });
         document.getElementById('canvas-container').style.backgroundImage = darkMode ? 'radial-gradient(#334155 1px, transparent 1px)' : 'radial-gradient(#cbd5e1 1px, transparent 1px)';
         localStorage.setItem('theme-preference', darkMode ? 'dark' : 'light');
         const btn = document.querySelector('.btn-dark');
         btn.textContent = darkMode ? '☀️ Açık Mod' : '🌙 Koyu Mod';
+        render();
       };
 
       // ============================================================
@@ -625,7 +519,7 @@
       }, { passive: false });
 
       // ============================================================
-      // GİRİŞ KONTROLÜ
+      // GİRİŞ KONTROLÜ (Firebase + Local)
       // ============================================================
       function askForCode() {
         const code = prompt('Lütfen 6 haneli güvenlik kodunu girin:');
@@ -651,10 +545,9 @@
             userCode = askForCode();
           }
           sessionStorage.setItem('authenticated', 'true');
-          location.reload();
+          startApp();
         }).catch((err) => {
-          console.error('Firebase kod okuma hatası:', err);
-          alert('Firebase bağlantı hatası! Varsayılan kodla devam ediliyor.');
+          console.warn('Firebase kod okuma hatası, varsayılan kod kullanılıyor:', err);
           const storedCode = '300389';
           let userCode = askForCode();
           while (userCode !== storedCode) {
@@ -662,15 +555,15 @@
             userCode = askForCode();
           }
           sessionStorage.setItem('authenticated', 'true');
-          location.reload();
+          startApp();
         });
       }
 
       // ============================================================
       // BAŞLAT
       // ============================================================
-      async function startApp() {
-        // Karanlık mod
+      function startApp() {
+        // Karanlık modu uygula
         if (darkMode) {
           document.body.style.background = '#0f172a';
           document.body.style.color = '#e2e8f0';
@@ -680,30 +573,11 @@
           document.querySelector('.btn-dark').textContent = '☀️ Açık Mod';
         }
 
-        // Önce localStorage'dan yüklemeyi dene
-        const hasLocal = loadFromLocal();
-
-        // Firebase'den yüklemeyi dene
-        const hasFirebase = await loadFromFirebase();
-
-        if (!hasFirebase && !hasLocal) {
-          // Hiç veri yok, varsayılanı kullan
-          project = JSON.parse(JSON.stringify(defaultProject));
-          saveToFirebase();
-        } else if (!hasFirebase && hasLocal) {
-          // Local var, Firebase yok - Local'i kullan
-          // (zaten project local'den yüklendi)
-          saveToFirebase(); // Firebase'e yaz
-        } else if (hasFirebase && hasLocal) {
-          // Her ikisi de var - Firebase öncelikli
-          // (zaten project Firebase'den yüklendi)
-        }
-
-        overlay.classList.add('hidden');
-        render();
+        // Veriyi yükle
+        loadProject();
       }
 
-      // Giriş kontrolü
+      // Başlat
       authenticate();
 
     })();
