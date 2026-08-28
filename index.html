@@ -164,9 +164,69 @@
       border-color: #334155 !important;
     }
 
+    body.auth-locked > header,
+    body.auth-locked > main {
+      visibility: hidden;
+    }
+
+    #login-screen {
+      background: radial-gradient(circle at top, #ecfdf5 0%, #f8fafc 52%, #e2e8f0 100%);
+    }
+
+    body.dark-mode #login-screen {
+      background: radial-gradient(circle at top, #064e3b 0%, #0f172a 60%, #020617 100%);
+    }
+
+    #canvas-container {
+      touch-action: none;
+    }
+
+    @media (max-width: 768px) {
+      header {
+        align-items: stretch;
+        max-height: 42vh;
+        overflow-y: auto;
+      }
+
+      header > div,
+      header > div > div {
+        width: 100%;
+      }
+
+      header > div:first-child,
+      header > div:nth-child(2),
+      header > div:last-child {
+        justify-content: center;
+      }
+
+      header > div:last-child {
+        gap: 0.35rem;
+      }
+
+      header > div:last-child > div,
+      header > div:last-child > button {
+        flex: 1 1 auto;
+        justify-content: center;
+      }
+
+      #canvas-container > div.absolute.bottom-4 {
+        display: none;
+      }
+    }
   </style>
 </head>
-<body class="w-screen h-screen overflow-hidden bg-slate-100 text-slate-800 flex flex-col select-none">
+<body class="auth-locked w-screen h-screen overflow-hidden bg-slate-100 text-slate-800 flex flex-col select-none">
+  <section id="login-screen" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <form onsubmit="handleLogin(event)" class="w-full max-w-sm bg-white rounded-2xl border border-slate-200 shadow-2xl p-7 text-center">
+      <div class="mx-auto mb-4 w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-2xl shadow-sm">🌿</div>
+      <h2 class="text-lg font-bold text-slate-900">Varlık ve Süreç Yönetim Haritası</h2>
+      <p class="mt-1 mb-6 text-xs text-slate-500">Devam etmek için 6 haneli erişim şifresini girin.</p>
+      <input id="access-code-input" type="password" inputmode="numeric" autocomplete="off" pattern="[0-9]{6}" maxlength="6" required class="w-full text-center tracking-[0.45em] text-lg font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="6 haneli erişim şifresi" />
+      <button id="login-button" type="submit" class="mt-4 w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white py-3 text-sm font-bold transition">Giriş Yap</button>
+      <p id="login-status" class="min-h-5 mt-3 text-xs text-rose-600" role="alert"></p>
+    </form>
+  </section>
+
   <!-- Top Navigation Bar -->
   <header class="bg-white border-b border-slate-200 px-4 py-2.5 flex flex-wrap items-center justify-between z-30 shadow-xs gap-3 transition-colors">
     <div class="flex items-center gap-3">
@@ -236,6 +296,11 @@
       <button onclick="downloadJSON()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition shadow-xs">
         <span>💾</span> <span>JSON İndir</span>
       </button>
+
+      <button onclick="document.getElementById('json-upload-input').click()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition shadow-xs" title="JSON dosyasından proje yükle">
+        <span>📂</span> <span>JSON Yükle</span>
+      </button>
+      <input id="json-upload-input" type="file" accept="application/json,.json" class="hidden" onchange="uploadJSON(this.files[0])" />
     </div>
   </header>
 
@@ -872,6 +937,8 @@
       // Load Initial Project State from embedded JSON or LocalStorage
       const STORAGE_KEY = 'tree_editor_standalone_' + window.location.pathname;
       const FIREBASE_PATH = 'projects/default';
+      const ACCESS_CODE_PATH = 'settings/accessCode';
+      const DEFAULT_ACCESS_CODE = '222222';
       let project = null;
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
@@ -1025,6 +1092,62 @@
           console.warn('Firebase verisi okunamadı, yerel kayıt kullanılacak:', error);
         });
       }
+
+      window.handleLogin = function(event) {
+        event.preventDefault();
+        const input = document.getElementById('access-code-input');
+        const button = document.getElementById('login-button');
+        const status = document.getElementById('login-status');
+        const enteredCode = input.value;
+
+        if (!/^[0-9]{6}$/.test(enteredCode)) {
+          status.textContent = 'Şifre 6 haneli numerik olmalıdır.';
+          input.focus();
+          return;
+        }
+        if (!firebaseDatabase) {
+          status.textContent = 'Firebase bağlantısı kurulamadı.';
+          return;
+        }
+
+        button.disabled = true;
+        button.textContent = 'Kontrol ediliyor...';
+        status.textContent = '';
+
+        const accessCodeRef = firebaseDatabase.ref(ACCESS_CODE_PATH);
+        const timeout = new Promise((resolve, reject) => {
+          setTimeout(() => reject(new Error('timeout')), 10000);
+        });
+        Promise.race([accessCodeRef.once('value'), timeout])
+          .then((snapshot) => {
+            if (snapshot.val() === null) {
+              return accessCodeRef.set(DEFAULT_ACCESS_CODE).then(() => DEFAULT_ACCESS_CODE);
+            }
+            return String(snapshot.val());
+          })
+          .then((storedCode) => {
+            if (storedCode !== enteredCode) {
+              throw new Error('invalid-code');
+            }
+            document.body.classList.remove('auth-locked');
+            document.getElementById('login-screen').remove();
+            updateStats();
+            renderCanvas();
+            listenForFirebaseProject();
+          })
+          .catch((error) => {
+            status.textContent = error.message === 'invalid-code'
+              ? 'Şifre hatalı.'
+              : error.message === 'timeout'
+                ? 'Firebase bağlantısı zaman aşımına uğradı.'
+                : 'Şifre Firebase üzerinden doğrulanamadı.';
+            input.select();
+          })
+          .finally(() => {
+            button.disabled = false;
+            button.textContent = 'Giriş Yap';
+          });
+      };
 
       function updateStats() {
         if (!project.relations) project.relations = [];
@@ -2283,6 +2406,75 @@
         }
       });
 
+      let touchPanStart = null;
+      let pinchStart = null;
+
+      const getTouchCenter = (touches) => ({
+        x: (touches[0].clientX + touches[1].clientX) / 2,
+        y: (touches[0].clientY + touches[1].clientY) / 2
+      });
+
+      const getTouchDistance = (touches) => Math.hypot(
+        touches[1].clientX - touches[0].clientX,
+        touches[1].clientY - touches[0].clientY
+      );
+
+      canvasContainer.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+          const center = getTouchCenter(e.touches);
+          pinchStart = {
+            distance: getTouchDistance(e.touches),
+            zoom,
+            canvasX: (center.x - canvasContainer.getBoundingClientRect().left - panX) / zoom,
+            canvasY: (center.y - canvasContainer.getBoundingClientRect().top - panY) / zoom
+          };
+          touchPanStart = null;
+          e.preventDefault();
+          return;
+        }
+
+        if (e.touches.length === 1 &&
+            !e.target.closest('[id^="node-card-"]') &&
+            !e.target.closest('[data-tree-id]')) {
+          touchPanStart = {
+            x: e.touches[0].clientX - panX,
+            y: e.touches[0].clientY - panY
+          };
+          e.preventDefault();
+        }
+      }, { passive: false });
+
+      canvasContainer.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2 && pinchStart) {
+          const center = getTouchCenter(e.touches);
+          const rect = canvasContainer.getBoundingClientRect();
+          const currentDistance = getTouchDistance(e.touches);
+          const nextZoom = Math.max(0.25, Math.min(2.5,
+            Math.round(pinchStart.zoom * currentDistance / pinchStart.distance * 100) / 100));
+          const centerX = center.x - rect.left;
+          const centerY = center.y - rect.top;
+          zoom = nextZoom;
+          panX = Math.round(centerX - pinchStart.canvasX * zoom);
+          panY = Math.round(centerY - pinchStart.canvasY * zoom);
+          document.getElementById('zoom-text').textContent = Math.round(zoom * 100) + '%';
+          renderCanvas();
+          e.preventDefault();
+          return;
+        }
+
+        if (e.touches.length === 1 && touchPanStart) {
+          panX = e.touches[0].clientX - touchPanStart.x;
+          panY = e.touches[0].clientY - touchPanStart.y;
+          renderCanvas();
+          e.preventDefault();
+        }
+      }, { passive: false });
+
+      canvasContainer.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) pinchStart = null;
+        if (e.touches.length === 0) touchPanStart = null;
+      }, { passive: false });
+
       // Keyboard Shortcuts (Esc to Cancel Connection or Close Modals)
       window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
@@ -2410,6 +2602,46 @@
         URL.revokeObjectURL(url);
       };
 
+      window.uploadJSON = function(file) {
+        if (!file) return;
+
+        const input = document.getElementById('json-upload-input');
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          let importedProject;
+          try {
+            importedProject = JSON.parse(event.target.result);
+          } catch (error) {
+            alert('JSON dosyası okunamadı. Lütfen geçerli bir JSON dosyası seçin.');
+            input.value = '';
+            return;
+          }
+
+          const hasValidTrees = importedProject &&
+            Array.isArray(importedProject.trees) &&
+            importedProject.trees.every(tree => tree && tree.rootNode && typeof tree.rootNode === 'object');
+          const hasValidRelations = !importedProject.relations || Array.isArray(importedProject.relations);
+
+          if (!hasValidTrees || !hasValidRelations) {
+            alert('Geçersiz proje dosyası. Dosyada trees dizisi, her ağaçta rootNode ve geçerli relations yapısı bulunmalıdır.');
+            input.value = '';
+            return;
+          }
+
+          if (!importedProject.relations) importedProject.relations = [];
+          project = importedProject;
+          saveProject();
+          if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+          input.value = '';
+          alert('Proje yüklendi ve Firebase ile eşitlendi.');
+        };
+        reader.onerror = function() {
+          alert('JSON dosyası okunurken bir hata oluştu.');
+          input.value = '';
+        };
+        reader.readAsText(file);
+      };
+
       // Set Canvas Size function
       window.setCanvasSize = function() {
         const current = canvasWidth;
@@ -2477,10 +2709,8 @@
         }
       })();
 
-      // Initial Mount
-      updateStats();
-      renderCanvas();
-      listenForFirebaseProject();
+      // The application mounts only after the Firebase access code is verified.
+      document.getElementById('access-code-input').focus();
     })();
   </script>
 </body>
