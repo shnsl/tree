@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Varlık ve Süreç Yönetim Haritası - İnteraktif Hiyerarşik Ağaç Editörü</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -848,8 +850,28 @@
   <!-- Standalone Interactive Engine Script -->
   <script>
     (function() {
+      const firebaseConfig = {
+        apiKey: "AIzaSyDCq3E5DieTAZy0gB8xG1kdJPC3v2JZWSo",
+        authDomain: "evdeftr27.firebaseapp.com",
+        databaseURL: "https://evdeftr27-default-rtdb.firebaseio.com",
+        projectId: "evdeftr27",
+        storageBucket: "evdeftr27.appspot.com",
+        messagingSenderId: "51532098566",
+        appId: "1:51532098566:web:4b821a587080fd25ada787",
+        measurementId: "G-GXJ8K3ZQ9T"
+      };
+
+      let firebaseDatabase = null;
+      try {
+        firebase.initializeApp(firebaseConfig);
+        firebaseDatabase = firebase.database();
+      } catch (e) {
+        console.warn('Firebase başlatılamadı, yerel kayıt kullanılacak:', e);
+      }
+
       // Load Initial Project State from embedded JSON or LocalStorage
       const STORAGE_KEY = 'tree_editor_standalone_' + window.location.pathname;
+      const FIREBASE_PATH = 'projects/default';
       let project = null;
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
@@ -979,10 +1001,29 @@
           if (!project.relations) project.relations = [];
           project.lastModified = new Date().toISOString();
           localStorage.setItem(STORAGE_KEY, JSON.stringify(project));
+          if (firebaseDatabase) {
+            firebaseDatabase.ref(FIREBASE_PATH).set(project).catch((error) => {
+              console.warn('Firebase kaydı başarısız, yerel kayıt korunuyor:', error);
+            });
+          }
           updateStats();
         } catch (e) {
           console.error(e);
         }
+      }
+
+      function listenForFirebaseProject() {
+        if (!firebaseDatabase) return;
+        firebaseDatabase.ref(FIREBASE_PATH).on('value', (snapshot) => {
+          const remoteProject = snapshot.val();
+          if (!remoteProject || remoteProject.lastModified === project.lastModified) return;
+          project = remoteProject;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(project));
+          updateStats();
+          if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+        }, (error) => {
+          console.warn('Firebase verisi okunamadı, yerel kayıt kullanılacak:', error);
+        });
       }
 
       function updateStats() {
@@ -2439,6 +2480,7 @@
       // Initial Mount
       updateStats();
       renderCanvas();
+      listenForFirebaseProject();
     })();
   </script>
 </body>
