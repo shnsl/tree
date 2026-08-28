@@ -184,6 +184,24 @@
     body.dark-mode #recent-actions-list .bg-cyan-50 { background-color: #164e63 !important; color: #67e8f9 !important; }
     body.dark-mode #recent-actions-list .bg-rose-50 { background-color: #4c0519 !important; color: #fda4af !important; }
     body.dark-mode #recent-actions-list button:hover { background-color: #334155 !important; }
+    body.dark-mode #notifications-modal > div {
+      background-color: #1e293b !important;
+      border-color: #334155 !important;
+    }
+    body.dark-mode #notifications-modal > div > div:first-child {
+      background-color: #4c0519 !important;
+      border-color: #881337 !important;
+    }
+    body.dark-mode #notifications-modal h3 { color: #f1f5f9 !important; }
+    body.dark-mode #notifications-modal p { color: #fecdd3 !important; }
+    body.dark-mode #notifications-list > div {
+      background-color: #0f172a !important;
+      border-color: #334155 !important;
+    }
+    body.dark-mode #notifications-list .text-slate-800 { color: #f1f5f9 !important; }
+    body.dark-mode #notifications-list .text-slate-500 { color: #cbd5e1 !important; }
+    body.dark-mode #notifications-list .text-slate-400 { color: #94a3b8 !important; }
+    body.dark-mode #notifications-list button:hover { background-color: #334155 !important; }
 
     body.auth-locked > header,
     body.auth-locked > main {
@@ -241,8 +259,8 @@
     <form onsubmit="handleLogin(event)" class="w-full max-w-sm bg-white rounded-2xl border border-slate-200 shadow-2xl p-7 text-center">
       <div class="mx-auto mb-4 w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-2xl shadow-sm">🌿</div>
       <h2 class="text-lg font-bold text-slate-900">Varlık ve Süreç Yönetim Haritası</h2>
-      <p class="mt-1 mb-6 text-xs text-slate-500">Devam etmek için 6 haneli erişim şifresini girin.</p>
-      <input id="access-code-input" type="password" inputmode="numeric" autocomplete="off" pattern="[0-9]{6}" maxlength="6" required class="w-full text-center tracking-[0.45em] text-lg font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="6 haneli erişim şifresi" />
+      <p class="mt-1 mb-6 text-xs text-slate-500">Devam etmek için erişim şifresini girin.</p>
+      <input id="access-code-input" type="password" autocomplete="off" required class="w-full text-center text-lg font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="Erişim şifresi" />
       <button id="login-button" type="submit" class="mt-4 w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white py-3 text-sm font-bold transition">Giriş Yap</button>
       <p id="login-status" class="min-h-5 mt-3 text-xs text-rose-600" role="alert"></p>
     </form>
@@ -277,6 +295,10 @@
 
       <button onclick="openRecentActionsModal()" class="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold rounded-xl transition shadow-xs">
         <span>🕘</span> <span>Son İşlemler</span>
+      </button>
+
+      <button onclick="openNotificationsModal()" class="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition shadow-xs">
+        <span>🔔</span> <span>Bildirimler (<span id="notification-count">0</span>)</span>
       </button>
 
       <div class="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-semibold transition-colors">
@@ -382,6 +404,20 @@
           <button onclick="closeRecentActionsModal()" class="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition font-bold">✕</button>
         </div>
         <div id="recent-actions-list" class="p-5 overflow-y-auto space-y-2 custom-scroll"></div>
+      </div>
+    </div>
+
+    <!-- Date Notifications Modal -->
+    <div id="notifications-modal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] transition-colors">
+        <div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-rose-50 transition-colors">
+          <div>
+            <h3 class="font-bold text-slate-900 text-sm">Tarih Bildirimleri</h3>
+            <p class="text-[11px] text-slate-500">Yaklaşan ve geçmiş tarihleri kontrol edin.</p>
+          </div>
+          <button onclick="closeNotificationsModal()" class="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition font-bold">✕</button>
+        </div>
+        <div id="notifications-list" class="p-5 overflow-y-auto space-y-2 custom-scroll"></div>
       </div>
     </div>
 
@@ -1107,6 +1143,94 @@
         return list;
       }
 
+      function parseDateValue(value) {
+        const text = String(value || '').trim();
+        let match = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+        if (!match) match = text.match(/^(\d{1,2})[-./](\d{1,2})[-./](\d{4})/);
+        if (!match) return null;
+
+        const year = match[1].length === 4 ? Number(match[1]) : Number(match[3]);
+        const month = match[1].length === 4 ? Number(match[2]) : Number(match[2]);
+        const day = match[1].length === 4 ? Number(match[3]) : Number(match[1]);
+        const date = new Date(year, month - 1, day);
+        return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
+      }
+
+      function getDateNotifications() {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const notifications = [];
+        getAllProjectNodes().forEach(item => {
+          (item.node.fields || []).forEach(field => {
+            const key = String(field.key || '').toLocaleLowerCase('tr-TR');
+            if (!/(bitiş|bitis|son tarih|son bakım|son bakim|muayene|vade|geçerlilik|gecerlilik)/.test(key)) return;
+            const date = parseDateValue(field.value);
+            if (!date) return;
+            const daysRemaining = Math.round((date - today) / 86400000);
+            if (daysRemaining > 30) return;
+            notifications.push({
+              nodeId: item.node.id,
+              nodeTitle: item.node.title,
+              treeName: item.treeName,
+              fieldKey: field.key,
+              fieldValue: field.value,
+              daysRemaining
+            });
+          });
+        });
+        return notifications.sort((a, b) => a.daysRemaining - b.daysRemaining);
+      }
+
+      function updateNotificationCount() {
+        const countElement = document.getElementById('notification-count');
+        if (countElement) countElement.textContent = String(getDateNotifications().length);
+      }
+
+      function getNotificationStatus(daysRemaining) {
+        if (daysRemaining < 0) return { text: `${Math.abs(daysRemaining)} gün geçti`, color: 'text-rose-700 bg-rose-50 border-rose-200' };
+        if (daysRemaining === 0) return { text: 'Bugün', color: 'text-rose-700 bg-rose-50 border-rose-200' };
+        if (daysRemaining <= 7) return { text: `${daysRemaining} gün kaldı`, color: 'text-amber-800 bg-amber-50 border-amber-200' };
+        return { text: `${daysRemaining} gün kaldı`, color: 'text-blue-700 bg-blue-50 border-blue-200' };
+      }
+
+      function renderNotifications() {
+        const list = document.getElementById('notifications-list');
+        const notifications = getDateNotifications();
+        updateNotificationCount();
+        if (!list) return;
+        if (notifications.length === 0) {
+          list.innerHTML = '<div class="text-center text-emerald-700 text-xs py-8 bg-emerald-50 rounded-xl border border-emerald-200">Önümüzdeki 30 gün içinde yaklaşan veya geçmiş tarih bulunmuyor.</div>';
+          return;
+        }
+        list.innerHTML = notifications.map(notification => {
+          const status = getNotificationStatus(notification.daysRemaining);
+          return `
+            <div class="flex items-center gap-3 p-3 rounded-xl border bg-slate-50/70 ${status.color.split(' ').find(color => color.startsWith('border-'))}">
+              <span class="shrink-0 px-2 py-1 rounded-lg border text-[10px] font-bold ${status.color}">${status.text}</span>
+              <div class="min-w-0 flex-1">
+                <div class="text-xs font-bold text-slate-800 truncate">${escapeHtml(notification.nodeTitle)}</div>
+                <div class="text-[11px] text-slate-500 truncate">${escapeHtml(notification.fieldKey)}: ${escapeHtml(notification.fieldValue)} · ${escapeHtml(notification.treeName)}</div>
+              </div>
+              <button type="button" onclick="openNotificationNode('${notification.nodeId}')" class="p-1.5 rounded-lg text-slate-600 hover:bg-white hover:text-rose-700" title="Kartı düzenle">✏️</button>
+            </div>
+          `;
+        }).join('');
+      }
+
+      window.openNotificationsModal = function() {
+        renderNotifications();
+        document.getElementById('notifications-modal').classList.remove('hidden');
+      };
+
+      window.closeNotificationsModal = function() {
+        document.getElementById('notifications-modal').classList.add('hidden');
+      };
+
+      window.openNotificationNode = function(nodeId) {
+        closeNotificationsModal();
+        window.openEditModal(nodeId);
+      };
+
       function revealNode(nodeId, nodes = project.trees) {
         for (const tree of nodes) {
           const reveal = (node) => {
@@ -1315,8 +1439,8 @@
         const status = document.getElementById('login-status');
         const enteredCode = input.value;
 
-        if (!/^[0-9]{6}$/.test(enteredCode)) {
-          status.textContent = 'Şifre 6 haneli numerik olmalıdır.';
+        if (!enteredCode) {
+          status.textContent = 'Şifre girin.';
           input.focus();
           return;
         }
@@ -1383,6 +1507,7 @@
         if (headerRelCount) {
           headerRelCount.textContent = String(project.relations.length);
         }
+        renderNotifications();
       }
 
       // Layout Computation
@@ -2803,6 +2928,8 @@
             cancelRelationConnect();
           } else if (!document.getElementById('relation-modal').classList.contains('hidden')) {
             closeRelationModal();
+          } else if (!document.getElementById('notifications-modal').classList.contains('hidden')) {
+            closeNotificationsModal();
           } else if (!document.getElementById('node-modal').classList.contains('hidden')) {
             closeModal();
           }
