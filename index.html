@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    /* (Stiller aynı, kısaltıldı) */
+    /* (Stiller aynı, değişmedi) */
     body { font-family: 'Plus Jakarta Sans', sans-serif; transition: background-color 0.3s ease, color 0.3s ease; touch-action: none; }
     .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
     .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -113,7 +113,7 @@
 </head>
 <body>
 
-  <!-- Loading Overlay (başlangıçta görünür) -->
+  <!-- Loading Overlay -->
   <div id="loading-overlay">
     <div class="flex flex-col items-center gap-4">
       <div class="loader"></div>
@@ -122,7 +122,7 @@
   </div>
 
   <!-- ============================================================ -->
-  <!-- ANA UYGULAMA (Her zaman görünür, ama giriş yapılmazsa overlay'de kalır) -->
+  <!-- ANA UYGULAMA -->
   <!-- ============================================================ -->
 
   <header class="bg-white border-b border-slate-200 px-4 py-2.5 flex flex-wrap items-center justify-between z-30 shadow-xs gap-3 transition-colors">
@@ -259,7 +259,6 @@
       function askForCode() {
         const code = prompt('Lütfen 6 haneli güvenlik kodunu girin:');
         if (code === null) {
-          // Kullanıcı iptal etti, tekrar sor
           return askForCode();
         }
         if (code.length !== 6 || !/^\d+$/.test(code)) {
@@ -272,12 +271,10 @@
       function authenticate() {
         const isAuth = sessionStorage.getItem('authenticated') === 'true';
         if (isAuth) {
-          // Zaten giriş yapmış
           startApp();
           return;
         }
 
-        // Firebase'den mevcut kodu al
         accessCodeRef.once('value').then((snapshot) => {
           const storedCode = snapshot.val() || '300389';
           let userCode = askForCode();
@@ -285,14 +282,11 @@
             alert('❌ Geçersiz kod! Lütfen tekrar deneyin.');
             userCode = askForCode();
           }
-          // Doğru kod
           sessionStorage.setItem('authenticated', 'true');
-          // Sayfayı yenile (böylece tüm bileşenler bağımsız başlasın)
           location.reload();
         }).catch((err) => {
           console.error('Firebase kodu okuma hatası:', err);
           alert('Firebase bağlantı hatası! Lütfen internet bağlantınızı kontrol edin.');
-          // Hata durumunda varsayılan kodla dene
           const storedCode = '300389';
           let userCode = askForCode();
           while (userCode !== storedCode) {
@@ -305,7 +299,7 @@
       }
 
       // ============================================================
-      // ANA UYGULAMA BAŞLAT
+      // ANA UYGULAMA
       // ============================================================
       let project = null;
       let viewMode = 'canvas';
@@ -580,7 +574,7 @@
       }
 
       // ============================================================
-      // RENDER CANVAS
+      // RENDER CANVAS (global yapıldı)
       // ============================================================
       function renderCanvas() {
         if (!project) {
@@ -604,6 +598,7 @@
             return;
           }
 
+          // Transform
           stage.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})`;
           document.getElementById('canvas-container').style.backgroundPosition = `${panX}px ${panY}px`;
           document.getElementById('canvas-container').style.backgroundSize = `${24 * zoom}px ${24 * zoom}px`;
@@ -725,14 +720,14 @@
             `;
           });
           nodesLayer.innerHTML = nodesHtml;
-          console.log('✅ renderCanvas başarıyla tamamlandı.');
+          console.log('✅ renderCanvas başarıyla tamamlandı. Kart sayısı:', nodeLayouts.size);
         } catch (e) {
           console.error('❌ renderCanvas hatası:', e);
         }
       }
 
       // ============================================================
-      // RENDER OUTLINE (GELİŞTİRİLMİŞ)
+      // RENDER OUTLINE
       // ============================================================
       function renderOutline() {
         if (!project) {
@@ -779,7 +774,7 @@
       };
 
       // ============================================================
-      // TREE & NODE OPERATIONS (Kısa versiyon, tam işlevsellik için eksiksiz kod gerekir, şimdilik temel)
+      // TREE & NODE OPERATIONS (Kısa versiyon)
       // ============================================================
       window.addNewTree = function() {
         const name = prompt('Yeni ağaç adını girin:', 'Yeni Varlık Ağacı');
@@ -874,6 +869,13 @@
       }
 
       // ============================================================
+      // GLOBAL ERİŞİM (KONSOL İÇİN)
+      // ============================================================
+      window.project = project; // global yap
+      window.renderCanvas = renderCanvas;
+      window.computeLayouts = computeLayouts;
+
+      // ============================================================
       // BAŞLAT
       // ============================================================
       function startApp() {
@@ -890,10 +892,8 @@
       }
 
       // ============================================================
-      // BAŞLANGIÇ: Önce kimlik doğrulama, sonra uygulama
+      // BAŞLANGIÇ
       // ============================================================
-      // Eğer sessionStorage'da authenticated varsa zaten startApp çağrılır, yoksa authenticate çalışır.
-      // Ama burada doğrudan authenticate çağırıyoruz.
       if (sessionStorage.getItem('authenticated') === 'true') {
         startApp();
       } else {
