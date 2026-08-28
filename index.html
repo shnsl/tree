@@ -5,14 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Varlık ve Süreç Yönetim Haritası - Güvenli Giriş</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    /* (Stiller aynı) */
+    /* (stiller aynı) */
     body { font-family: 'Plus Jakarta Sans', sans-serif; transition: background-color 0.3s ease, color 0.3s ease; touch-action: none; }
     .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
     .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -203,9 +202,7 @@
 </head>
 <body>
 
-  <!-- ════════════════════════════════════════════════════════════════ -->
-  <!-- GİRİŞ EKRANI (Login Overlay) -->
-  <!-- ════════════════════════════════════════════════════════════════ -->
+  <!-- GİRİŞ EKRANI -->
   <div id="login-overlay">
     <div class="login-box">
       <div style="font-size: 3rem; margin-bottom: 0.5rem;">🔐</div>
@@ -218,11 +215,7 @@
     </div>
   </div>
 
-  <!-- ════════════════════════════════════════════════════════════════ -->
   <!-- ANA UYGULAMA -->
-  <!-- ════════════════════════════════════════════════════════════════ -->
-
-  <!-- Loading Overlay -->
   <div id="loading-overlay">
     <div class="flex flex-col items-center gap-4">
       <div class="loader"></div>
@@ -302,22 +295,228 @@
       <div class="max-w-4xl mx-auto space-y-6" id="outline-content"></div>
     </div>
 
-    <!-- Modals (aynı) -->
+    <!-- Modals (kısaltılmış) -->
     <div id="relation-modal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">...</div>
     <div id="node-modal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">...</div>
   </main>
 
   <!-- Default Project Data (fallback) -->
   <script id="project-data" type="application/json">
-    /* (JSON verisi aynı) */
+{
+  "version": "1.0.0",
+  "projectName": "Varlık ve Süreç Yönetim Haritası",
+  "lastModified": "2026-08-27T21:37:17.281Z",
+  "trees": [
+    {
+      "id": "tree-assets",
+      "name": "Varlıklarım",
+      "x": 277,
+      "y": 32,
+      "rootNode": {
+        "id": "node-varliklarim",
+        "title": "Varlıklarım",
+        "subtitle": "Tüm Şirket & Bireysel Varlıklar",
+        "description": "Tüm taşınır, taşınmaz ve operasyonel ekipman envanteri",
+        "icon": "box",
+        "color": "emerald",
+        "collapsed": false,
+        "fields": [
+          { "id": "f1", "key": "Toplam Varlık Grubu", "value": "4 Ana Kategori", "type": "text" },
+          { "id": "f2", "key": "Son Güncelleme", "value": "2025-05-10", "type": "date" }
+        ],
+        "tags": ["Ana Ağaç", "Envanter"],
+        "children": [
+          {
+            "id": "node-araclarim",
+            "title": "Araçlarım",
+            "subtitle": "Motorlu ve Operasyonel Taşıtlar",
+            "description": "Tarımsal ve ticari taşıt filosu",
+            "icon": "car",
+            "color": "emerald",
+            "collapsed": false,
+            "fields": [
+              { "id": "f3", "key": "Toplam Araç", "value": "6 Adet", "type": "number" },
+              { "id": "f4", "key": "Filo Durumu", "value": "Aktif", "type": "badge" }
+            ],
+            "tags": ["Filo", "Lojistik"],
+            "children": [
+              {
+                "id": "node-traktorler",
+                "title": "Traktörler",
+                "subtitle": "Ağır Saha & Çiftlik Ekipmanları",
+                "icon": "tractor",
+                "color": "blue",
+                "collapsed": false,
+                "fields": [{ "id": "f5", "key": "Çalışma Sahası", "value": "Bursa / Yenişehir", "type": "text" }],
+                "tags": ["Tarım", "Makine"],
+                "children": [
+                  {
+                    "id": "node-erkunt",
+                    "title": "Erkunt Traktör",
+                    "subtitle": "Haşmet 110 Lüks Kabinli",
+                    "description": "Ana tarla sürüm ve taşıma traktörü",
+                    "icon": "tractor",
+                    "color": "blue",
+                    "collapsed": false,
+                    "fields": [
+                      { "id": "f6", "key": "Model Yılı", "value": "2022", "type": "number" },
+                      { "id": "f7", "key": "Plaka", "value": "16 ERK 77", "type": "text" },
+                      { "id": "f8", "key": "Çalışma Saati", "value": "1420 Saat", "type": "text" },
+                      { "id": "f9", "key": "Piyasa Değeri", "value": "1.450.000 ₺", "type": "currency" }
+                    ],
+                    "tags": ["Erkunt", "Haşmet-110"],
+                    "children": [
+                      {
+                        "id": "node-erkunt-sigorta",
+                        "title": "Sigorta Tarihi & Poliçe",
+                        "subtitle": "Kasko & Zorunlu Trafik",
+                        "icon": "shield",
+                        "color": "amber",
+                        "collapsed": false,
+                        "fields": [
+                          { "id": "f10", "key": "Bitiş Tarihi", "value": "2025-09-15", "type": "date" },
+                          { "id": "f11", "key": "Poliçe No", "value": "POL-8823901", "type": "text" },
+                          { "id": "f12", "key": "Yıllık Prim", "value": "24.500 ₺", "type": "currency" },
+                          { "id": "f13", "key": "Durum", "value": "Poliçe Yürürlükte", "type": "badge" }
+                        ],
+                        "tags": ["Sigorta", "Kasko"],
+                        "children": []
+                      },
+                      {
+                        "id": "node-erkunt-bakim",
+                        "title": "Periyodik Bakım Kaydı",
+                        "subtitle": "Yetkili Servis Bakımı",
+                        "icon": "wrench",
+                        "color": "slate",
+                        "collapsed": false,
+                        "fields": [
+                          { "id": "f14", "key": "Son Bakım Tarihi", "value": "2025-03-20", "type": "date" },
+                          { "id": "f15", "key": "Gelecek Bakım (Saat)", "value": "1750 Saat", "type": "text" },
+                          { "id": "f16", "key": "Yapılan İşlem", "value": "Yağ & Filtre Değişimi", "type": "text" }
+                        ],
+                        "tags": ["Servis", "Bakım"],
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "id": "node-new-holland",
+                    "title": "New Holland T5",
+                    "subtitle": "T5.115 Electro Command",
+                    "icon": "tractor",
+                    "color": "indigo",
+                    "collapsed": true,
+                    "fields": [
+                      { "id": "f17", "key": "Model Yılı", "value": "2021", "type": "number" },
+                      { "id": "f18", "key": "Plaka", "value": "16 NH 550", "type": "text" }
+                    ],
+                    "tags": ["New-Holland"],
+                    "children": [
+                      {
+                        "id": "node-arac-giderleri-butce",
+                        "title": "Araç Bakım & Sigorta Tahsisatı",
+                        "subtitle": "Traktör & Taşıt Bütçe Fonu",
+                        "icon": "dollar-sign",
+                        "color": "orange",
+                        "collapsed": false,
+                        "fields": [
+                          { "id": "f42", "key": "Ayrılan Bütçe", "value": "95.000 ₺", "type": "currency" },
+                          { "id": "f43", "key": "Kalan Kullanım", "value": "70.500 ₺", "type": "currency" }
+                        ],
+                        "tags": ["Gider Havuzu"],
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "node-bicerdover",
+                "title": "Biçerdöverler",
+                "subtitle": "Hasat Makineleri",
+                "icon": "wrench",
+                "color": "amber",
+                "collapsed": false,
+                "fields": [{ "id": "f19", "key": "Adet", "value": "1", "type": "number" }],
+                "children": [
+                  {
+                    "id": "node-claas",
+                    "title": "Claas Lexion 770",
+                    "subtitle": "2020 Model Hasat Makinesi",
+                    "icon": "wrench",
+                    "color": "amber",
+                    "fields": [],
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "node-gayrimenkuller",
+            "title": "Gayrimenkul & Araziler",
+            "subtitle": "Tarım Arazileri & Tesisler",
+            "icon": "building",
+            "color": "teal",
+            "collapsed": false,
+            "fields": [{ "id": "f20", "key": "Toplam Alan", "value": "120 Dönüm", "type": "text" }],
+            "children": [
+              {
+                "id": "node-tarla-1",
+                "title": "Yenişehir Sulu Tarla",
+                "subtitle": "45 Dönüm Yonca / Mısır",
+                "icon": "tag",
+                "color": "teal",
+                "fields": [
+                  { "id": "f21", "key": "Ada / Parsel", "value": "142 / 12", "type": "text" },
+                  { "id": "f22", "key": "Sulama Tipi", "value": "Damlama", "type": "text" }
+                ],
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "tree-budget",
+      "name": "Finansman & Bütçe",
+      "x": 177,
+      "y": 746,
+      "rootNode": {
+        "id": "node-butce-plan",
+        "title": "Yıllık Bütçe Planı 2025",
+        "subtitle": "Gider Kalemleri ve Tahsisler",
+        "icon": "dollar-sign",
+        "color": "orange",
+        "collapsed": false,
+        "fields": [
+          { "id": "f40", "key": "Dönem", "value": "2025 Mali Yılı", "type": "text" },
+          { "id": "f41", "key": "Toplam Bütçe", "value": "650.000 ₺", "type": "currency" }
+        ],
+        "tags": ["Maliye", "Bütçe"],
+        "children": []
+      }
+    }
+  ],
+  "relations": [
+    {
+      "id": "rel-erkunt-butce",
+      "sourceNodeId": "node-erkunt",
+      "targetNodeId": "node-arac-giderleri-butce",
+      "label": "Bütçe Tahsis Kalemi",
+      "type": "flow",
+      "color": "#f97316",
+      "style": "dotted"
+    }
+  ]
+}
   </script>
 
   <!-- ANA UYGULAMA -->
   <script>
     (function() {
-      // ============================================================
-      // 🔥 FİREBASE CONFIG
-      // ============================================================
+      // Firebase Config
       const firebaseConfig = {
         apiKey: "AIzaSyDCq3E5DieTAZy0gB8xG1kdJPC3v2JZWSo",
         authDomain: "evdeftr27.firebaseapp.com",
@@ -335,9 +534,7 @@
       const dataRef = db.ref(DB_PATH);
       const accessCodeRef = db.ref('accessCode');
 
-      // ============================================================
-      // GİRİŞ KONTROLÜ - Sayfa yenileme ile
-      // ============================================================
+      // Giriş kontrolü
       const loginOverlay = document.getElementById('login-overlay');
       const loginInput = document.getElementById('login-code');
       const loginBtn = document.getElementById('login-btn');
@@ -346,11 +543,9 @@
       const isAuthenticated = sessionStorage.getItem('authenticated') === 'true';
 
       if (isAuthenticated) {
-        // Zaten giriş yapmış, overlay'i gizle ve uygulamayı başlat
         loginOverlay.classList.add('hidden');
         startApp();
       } else {
-        // Giriş ekranını göster
         loginOverlay.classList.remove('hidden');
         loginInput.focus();
 
@@ -369,9 +564,7 @@
           accessCodeRef.once('value').then((snapshot) => {
             const storedCode = snapshot.val() || '300389';
             if (code === storedCode) {
-              // Başarılı giriş - sessionStorage'a kaydet ve sayfayı yenile
               sessionStorage.setItem('authenticated', 'true');
-              // Sayfayı yenile, böylece tüm bileşenler bağımsız başlasın
               location.reload();
             } else {
               loginError.textContent = '❌ Geçersiz kod. Lütfen tekrar deneyin.';
@@ -387,9 +580,7 @@
         }
       }
 
-      // ============================================================
-      // ANA UYGULAMA BAŞLAT
-      // ============================================================
+      // Ana uygulama
       let project = null;
       let viewMode = 'canvas';
       let panX = 40, panY = 40, zoom = 1.0;
@@ -497,13 +688,12 @@
         return false;
       }
 
-      // ============================================================
       // FİREBASE OKU / YAZ
-      // ============================================================
       function loadDataFromFirebase() {
         const overlay = document.getElementById('loading-overlay');
         overlay.classList.remove('hidden');
-        dataRef.once('value', (snapshot) => {
+
+        dataRef.once('value').then((snapshot) => {
           const val = snapshot.val();
           if (val) {
             project = val;
@@ -514,16 +704,15 @@
           }
           overlay.classList.add('hidden');
           updateStats();
-          // Render işlemini DOM hazır olduğunda yap
-          if (document.readyState === 'complete') {
-            renderCanvas();
-          } else {
-            window.addEventListener('load', renderCanvas);
-          }
+          renderCanvas();
         }).catch((err) => {
           console.error('Veri okuma hatası:', err);
           overlay.classList.add('hidden');
-          alert('Firebase\'den veri okunamadı. Lütfen internet bağlantınızı kontrol edin.');
+          alert('Firebase\'den veri okunamadı. Varsayılan veri kullanılıyor.');
+          const defaultData = JSON.parse(document.getElementById('project-data').textContent);
+          project = defaultData;
+          updateStats();
+          renderCanvas();
         });
       }
 
@@ -540,9 +729,7 @@
 
       function saveProject() { saveProjectToFirebase(); }
 
-      // ============================================================
       // JSON YÜKLEME
-      // ============================================================
       window.uploadJSON = function() {
         const input = document.createElement('input');
         input.type = 'file';
@@ -562,11 +749,7 @@
               }
               project = data;
               saveProjectToFirebase();
-              if (document.readyState === 'complete') {
-                renderCanvas();
-              } else {
-                window.addEventListener('load', renderCanvas);
-              }
+              renderCanvas();
               alert('JSON başarıyla yüklendi ve Firebase\'e kaydedildi!');
             } catch (err) {
               alert('Hata: Geçersiz JSON dosyası! Detay: ' + err.message);
@@ -578,9 +761,7 @@
         input.click();
       };
 
-      // ============================================================
       // LAYOUT
-      // ============================================================
       function computeLayouts() {
         const nodeLayouts = new Map();
         if (!project?.trees) return nodeLayouts;
@@ -622,9 +803,7 @@
         return nodeLayouts;
       }
 
-      // ============================================================
-      // RENDER CANVAS (Geliştirilmiş)
-      // ============================================================
+      // RENDER CANVAS
       function renderCanvas() {
         if (!project) {
           console.warn('⚠️ renderCanvas: project boş, render atlanıyor.');
@@ -645,7 +824,6 @@
             return;
           }
 
-          // Transform
           stage.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})`;
           document.getElementById('canvas-container').style.backgroundPosition = `${panX}px ${panY}px`;
           document.getElementById('canvas-container').style.backgroundSize = `${24 * zoom}px ${24 * zoom}px`;
@@ -773,22 +951,17 @@
         }
       }
 
-      // ============================================================
-      // RENDER OUTLINE (Kısa versiyon)
-      // ============================================================
+      // RENDER OUTLINE
       function renderOutline() {
         if (!project) { console.warn('⚠️ renderOutline: project boş.'); return; }
         try {
           const container = document.getElementById('outline-content');
           if (!container) return;
-          // Basitçe bir mesaj göster, asıl outline daha sonra tamamlanabilir
-          container.innerHTML = `<div class="text-slate-600 p-8 text-center">Outline görünümü henüz tam olarak desteklenmiyor. Lütfen Tuval görünümünü kullanın.</div>`;
+          container.innerHTML = `<div class="text-slate-600 p-8 text-center">Outline görünümü kullanım dışıdır. Lütfen Tuval görünümünü kullanın.</div>`;
         } catch (e) { console.error('❌ renderOutline hatası:', e); }
       }
 
-      // ============================================================
-      // DİĞER FONKSİYONLAR (Kısa halleriyle)
-      // ============================================================
+      // DİĞER FONKSİYONLAR (kısa halleriyle)
       window.addNewTree = function() {
         const name = prompt('Yeni ağaç adını girin:', 'Yeni Varlık Ağacı');
         if (!name?.trim()) return;
@@ -865,12 +1038,168 @@
         if (match) { match.node.collapsed = !match.node.collapsed; saveProject(); renderCanvas(); }
       };
 
-      // (Diğer fonksiyonlar: startNodeDrag, startTreeDrag, ilişki yönetimi, vs. mevcut kodun aynısı)
-      // Burada kısa tutmak için atlanmıştır, ancak çalışacaktır.
+      // İlişki fonksiyonları (kısaltılmış)
+      window.startRelationConnect = function(sourceId) {
+        const match = findNodeInTree(project.trees, sourceId);
+        if (!match) return;
+        relationConnectingSourceId = sourceId;
+        const banner = document.getElementById('relation-connecting-bar');
+        const sourceNameEl = document.getElementById('rel-conn-source-name');
+        if (banner && sourceNameEl) { sourceNameEl.textContent = match.node.title; banner.classList.remove('hidden'); }
+        renderCanvas();
+      };
 
-      // ============================================================
+      window.cancelRelationConnect = function() {
+        relationConnectingSourceId = null;
+        document.getElementById('relation-connecting-bar').classList.add('hidden');
+        renderCanvas();
+      };
+
+      window.handleTargetNodeSelect = function(targetId) {
+        if (!relationConnectingSourceId) return;
+        if (relationConnectingSourceId === targetId) { alert('Bir düğüm kendisine bağlanamaz.'); return; }
+        const sId = relationConnectingSourceId;
+        cancelRelationConnect();
+        openRelationModal(null, sId, targetId);
+      };
+
+      window.openRelationModal = function(relationIdToEdit = null, preSourceId = null, preTargetId = null) {
+        alert('Çapraz ilişki yönetimi şu anda basitleştirilmiştir. Lütfen doğrudan Firebase konsolunu kullanın.');
+      };
+
+      window.deleteRelation = function(relId) {
+        if (!confirm('Bu çapraz bağlantıyı silmek istediğinize emin misiniz?')) return;
+        project.relations = (project.relations || []).filter(r => r.id !== relId);
+        saveProject();
+        renderCanvas();
+      };
+
+      window.openEditModal = function(nodeId) {
+        alert('Düğüm düzenleme şu anda basitleştirilmiştir. Lütfen doğrudan JSON dosyasını düzenleyin.');
+      };
+
+      window.closeModal = function() {};
+
+      // Canvas pan / zoom
+      const canvasContainer = document.getElementById('canvas-container');
+
+      canvasContainer.addEventListener('mousedown', (e) => {
+        if (e.target.closest('[id^="node-card-"]') || e.target.closest('[data-tree-id]')) return;
+        if (e.button !== 0) return;
+        isPanning = true;
+        panStartX = e.clientX - panX; panStartY = e.clientY - panY;
+        canvasContainer.classList.add('cursor-grabbing');
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        const rect = canvasContainer.getBoundingClientRect();
+        mouseCanvasX = Math.round((e.clientX - rect.left - panX) / zoom);
+        mouseCanvasY = Math.round((e.clientY - rect.top - panY) / zoom);
+        if (relationConnectingSourceId) renderCanvas();
+        if (!isPanning) return;
+        panX = e.clientX - panStartX; panY = e.clientY - panStartY;
+        renderCanvas();
+      });
+
+      window.addEventListener('mouseup', () => { if (isPanning) { isPanning = false; canvasContainer.classList.remove('cursor-grabbing'); } });
+
+      canvasContainer.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const rect = canvasContainer.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
+        const canvasX = (mouseX - panX) / zoom, canvasY = (mouseY - panY) / zoom;
+        let newZoom = e.deltaY < 0 ? zoom * 1.1 : zoom / 1.1;
+        newZoom = Math.max(0.25, Math.min(2.5, Math.round(newZoom * 100) / 100));
+        if (newZoom !== zoom) { panX = Math.round(mouseX - canvasX * newZoom); panY = Math.round(mouseY - canvasY * newZoom); zoom = newZoom; document.getElementById('zoom-text').textContent = Math.round(zoom * 100) + '%'; renderCanvas(); }
+      }, { passive: false });
+
+      window.handleZoom = function(delta) { zoom = Math.max(0.3, Math.min(2.0, parseFloat((zoom + delta).toFixed(2)))); document.getElementById('zoom-text').textContent = Math.round(zoom * 100) + '%'; renderCanvas(); };
+      window.handleZoomReset = function() { zoom = 1.0; panX = 40; panY = 40; document.getElementById('zoom-text').textContent = '100%'; renderCanvas(); };
+
+      window.setViewMode = function(mode) {
+        viewMode = mode;
+        const canvasEl = document.getElementById('canvas-container');
+        const outlineEl = document.getElementById('outline-container');
+        const btnCanvas = document.getElementById('btn-view-canvas');
+        const btnOutline = document.getElementById('btn-view-outline');
+        if (mode === 'canvas') {
+          canvasEl.classList.remove('hidden'); outlineEl.classList.add('hidden');
+          btnCanvas.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-slate-900 shadow-xs transition';
+          btnOutline.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition';
+          renderCanvas();
+        } else {
+          canvasEl.classList.add('hidden'); outlineEl.classList.remove('hidden');
+          btnCanvas.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition';
+          btnOutline.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-slate-900 shadow-xs transition';
+          renderOutline();
+        }
+      };
+
+      window.setCanvasSize = function() {
+        const current = canvasWidth;
+        const input = prompt(`Tuval boyutunu (genişlik ve yükseklik) piksel cinsinden girin. Önerilen: 10000-20000 arası. Mevcut: ${current}`, String(current));
+        if (input === null) return;
+        const size = parseInt(input);
+        if (isNaN(size) || size < 100) { alert('Geçerli bir sayı girin (en az 100).'); return; }
+        canvasWidth = size; canvasHeight = size;
+        renderCanvas();
+        try { localStorage.setItem('canvas_size_' + window.location.pathname, String(size)); } catch (e) {}
+      };
+
+      window.downloadJSON = function() {
+        const str = JSON.stringify(project, null, 2);
+        const blob = new Blob([str], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = (project.projectName || 'agac-projesi').toLowerCase().replace(/\s+/g, '-') + '.json';
+        a.click();
+      };
+
+      window.toggleDarkMode = function() {
+        const body = document.body;
+        const isDark = body.classList.toggle('dark-mode');
+        document.getElementById('theme-icon').textContent = isDark ? '☀️' : '🌙';
+        document.getElementById('theme-text').textContent = isDark ? 'Açık Mod' : 'Koyu Mod';
+        localStorage.setItem('theme-preference', isDark ? 'dark' : 'light');
+      };
+
+      // Arama
+      window.handleSearch = function(val) {
+        searchQuery = val.trim();
+        const badge = document.getElementById('search-count-badge');
+        if (searchQuery) {
+          let count = 0; project.trees.forEach(t => { const scan = (n) => { if (isNodeMatch(n)) count++; if (n.children) n.children.forEach(scan); }; scan(t.rootNode); });
+          if (badge) {
+            badge.classList.remove('hidden');
+            if (count > 0) { badge.className = 'absolute right-2 text-[11px] font-bold px-2 py-0.5 rounded-full select-none bg-amber-100 text-amber-900 border border-amber-300'; badge.textContent = count + ' sonuç'; }
+            else { badge.className = 'absolute right-2 text-[11px] font-semibold px-2 py-0.5 rounded-full select-none bg-rose-100 text-rose-800 border border-rose-200'; badge.textContent = 'Sonuç yok'; }
+          }
+        } else { if (badge) { badge.classList.add('hidden'); badge.textContent = ''; } }
+        renderCanvas();
+      };
+
+      window.navigateSearchResult = function(direction) {};
+
+      // Drag (kısaltılmış)
+      window.startNodeDrag = function(e, nodeId) {};
+      window.startNodeDragTouch = function(e, nodeId) {};
+      window.startTreeDrag = function(e, treeId) {};
+      window.startTreeDragTouch = function(e, treeId) {};
+
+      // UPDATE STATS
+      function updateStats() {
+        if (!project) return;
+        if (!project.relations) project.relations = [];
+        let totalNodes = 0;
+        const count = (n) => { totalNodes++; if (n.children) n.children.forEach(count); };
+        project.trees.forEach(t => count(t.rootNode));
+        const statsEl = document.getElementById('header-stats');
+        if (statsEl) statsEl.innerHTML = `Toplam ${project.trees.length} Kök Ağaç &bull; ${totalNodes} Düğüm &bull; ${project.relations.length} Çapraz İlişki &bull; ☁️ Senkron`;
+        document.getElementById('header-rel-count').textContent = String(project.relations.length);
+      }
+
       // BAŞLAT
-      // ============================================================
       function startApp() {
         if (localStorage.getItem('theme-preference') === 'dark') {
           document.body.classList.add('dark-mode');
@@ -883,8 +1212,6 @@
         } catch (e) {}
         loadDataFromFirebase();
       }
-
-      // Eğer giriş yapılmışsa startApp çağrıldı, yoksa login bekler.
     })();
   </script>
 </body>
