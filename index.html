@@ -3,75 +3,827 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Varlık ve Süreç Yönetim Haritası</title>
+  <title>Varlık ve Süreç Yönetim Haritası - Firebase Senkron</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; background: #f1f5f9; touch-action: none; user-select: none; }
-    #canvas-container { position: relative; width: 100vw; height: 100vh; overflow: hidden; background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 24px 24px; }
-    #canvas-stage { position: absolute; top: 0; left: 0; width: 10000px; height: 10000px; transform-origin: top left; }
-    .card { position: absolute; width: 260px; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); padding: 14px 18px; cursor: grab; transition: box-shadow 0.2s, transform 0.1s; user-select: none; }
-    .card:active { cursor: grabbing; }
-    .card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
-    .card-dragging { opacity: 0.8; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3); transform: scale(1.03); z-index: 100; }
-    #header { background: white; border-bottom: 1px solid #e2e8f0; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 30; position: relative; flex-wrap: wrap; gap: 8px; }
-    #header h1 { font-size: 18px; font-weight: 700; margin: 0; }
-    #header-stats { font-size: 11px; color: #64748b; }
-    .btn { padding: 6px 16px; border-radius: 12px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; transition: 0.2s; }
-    .btn-green { background: #10b981; color: white; }
-    .btn-green:hover { background: #059669; }
-    .btn-dark { background: #1e293b; color: white; }
-    .btn-dark:hover { background: #0f172a; }
-    .btn-blue { background: #3b82f6; color: white; }
-    .btn-blue:hover { background: #2563eb; }
-    .btn-purple { background: #8b5cf6; color: white; }
-    .btn-purple:hover { background: #7c3aed; }
-    .tip { position: absolute; bottom: 20px; left: 20px; background: rgba(255,255,255,0.95); backdrop-filter: blur(4px); padding: 8px 16px; border-radius: 12px; font-size: 12px; color: #475569; border: 1px solid #e2e8f0; z-index: 30; }
-    .loading-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.7); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.5s; }
-    .loading-overlay.hidden { opacity: 0; pointer-events: none; }
-    .loader { width: 48px; height: 48px; border: 4px solid #e2e8f0; border-top-color: #10b981; border-radius: 50%; animation: spin 0.8s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .status-badge { font-size: 10px; padding: 2px 10px; border-radius: 20px; background: #d1fae5; color: #065f46; }
-    .status-badge.offline { background: #fee2e2; color: #991b1b; }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; transition: background-color 0.3s ease, color 0.3s ease; touch-action: none; }
+    .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+    .tree-branch { position: relative; }
+    .tree-branch::before {
+      content: '';
+      position: absolute;
+      left: -18px;
+      top: 22px;
+      width: 18px;
+      height: 2px;
+      background-color: #cbd5e1;
+    }
+    .tree-branch::after {
+      content: '';
+      position: absolute;
+      left: -18px;
+      top: 0;
+      width: 2px;
+      height: 100%;
+      background-color: #cbd5e1;
+    }
+    .tree-branch:last-child::after {
+      height: 22px;
+    }
+    .node-card-dragover {
+      outline: 2px dashed #3b82f6 !important;
+      outline-offset: 2px;
+      background-color: #eff6ff !important;
+    }
+
+    /* --- Dark Mode Styles --- */
+    body.dark-mode {
+      background-color: #0f172a !important;
+      color: #e2e8f0 !important;
+    }
+    body.dark-mode .bg-white { background-color: #1e293b !important; }
+    body.dark-mode .bg-slate-100 { background-color: #0f172a !important; }
+    body.dark-mode .bg-slate-50 { background-color: #1e293b !important; }
+    body.dark-mode .bg-slate-200 { background-color: #334155 !important; }
+    body.dark-mode .border-slate-200 { border-color: #334155 !important; }
+    body.dark-mode .border-slate-100 { border-color: #1e293b !important; }
+    body.dark-mode .text-slate-900 { color: #f1f5f9 !important; }
+    body.dark-mode .text-slate-800 { color: #e2e8f0 !important; }
+    body.dark-mode .text-slate-700 { color: #cbd5e1 !important; }
+    body.dark-mode .text-slate-600 { color: #94a3b8 !important; }
+    body.dark-mode .text-slate-500 { color: #64748b !important; }
+    body.dark-mode .text-slate-400 { color: #475569 !important; }
+    body.dark-mode .bg-slate-900 { background-color: #0f172a !important; }
+    body.dark-mode .bg-slate-900\/50 { background-color: rgba(15, 23, 42, 0.8) !important; }
+    body.dark-mode .bg-slate-900\/95 { background-color: #0f172a !important; }
+    body.dark-mode .hover\:bg-slate-100:hover { background-color: #334155 !important; }
+    body.dark-mode .hover\:bg-slate-200:hover { background-color: #475569 !important; }
+    body.dark-mode .hover\:bg-slate-50:hover { background-color: #1e293b !important; }
+    body.dark-mode .hover\:border-slate-300:hover { border-color: #475569 !important; }
+    body.dark-mode .shadow-xs { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.5) !important; }
+    body.dark-mode .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.6) !important; }
+    body.dark-mode .shadow-md { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.7) !important; }
+    body.dark-mode .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.8) !important; }
+    body.dark-mode .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9) !important; }
+
+    body.dark-mode .bg-violet-50\/70 { background-color: #2e1065 !important; }
+    body.dark-mode .bg-amber-50\/30 { background-color: #451a03 !important; }
+    body.dark-mode .bg-emerald-50 { background-color: #064e3b !important; }
+    body.dark-mode .bg-blue-50 { background-color: #172554 !important; }
+    body.dark-mode .bg-violet-50 { background-color: #2e1065 !important; }
+    body.dark-mode .bg-rose-50 { background-color: #4c0519 !important; }
+    body.dark-mode .bg-amber-50 { background-color: #451a03 !important; }
+    body.dark-mode .bg-indigo-50 { background-color: #1e1b4b !important; }
+
+    body.dark-mode .bg-slate-50\/80 { background-color: #1e293b !important; }
+    body.dark-mode .bg-white\/95 { background-color: #1e293b !important; backdrop-filter: blur(4px); }
+
+    body.dark-mode .ring-amber-400 { --tw-ring-color: #f59e0b; }
+    body.dark-mode .border-amber-500 { border-color: #f59e0b; }
+    body.dark-mode .text-amber-900 { color: #fbbf24; }
+    body.dark-mode .bg-amber-100 { background-color: #78350f; }
+    body.dark-mode .text-amber-800 { color: #fcd34d; }
+    body.dark-mode .bg-rose-100 { background-color: #4c0519; }
+    body.dark-mode .text-rose-800 { color: #fda4af; }
+
+    body.dark-mode #canvas-container {
+      background-image: radial-gradient(#334155 1px, transparent 1px) !important;
+    }
+
+    body.dark-mode .bg-emerald-600 { background-color: #059669 !important; }
+    body.dark-mode .hover\:bg-emerald-700:hover { background-color: #047857 !important; }
+    body.dark-mode .bg-violet-600 { background-color: #7c3aed !important; }
+    body.dark-mode .hover\:bg-violet-700:hover { background-color: #6d28d9 !important; }
+    body.dark-mode .bg-slate-800 { background-color: #1e293b !important; }
+
+    body.dark-mode .ring-violet-500 { --tw-ring-color: #8b5cf6; }
+    body.dark-mode .border-violet-500 { border-color: #8b5cf6; }
+    body.dark-mode .text-violet-300 { color: #c4b5fd; }
+    body.dark-mode .bg-violet-500 { background-color: #8b5cf6; }
+    body.dark-mode .bg-violet-600 { background-color: #7c3aed; }
+    body.dark-mode .hover\:bg-violet-50:hover { background-color: #2e1065; }
+
+    body.dark-mode .text-emerald-700 { color: #34d399; }
+    body.dark-mode .hover\:text-emerald-300:hover { color: #6ee7b7; }
+    body.dark-mode .hover\:bg-emerald-50:hover { background-color: #064e3b; }
+    body.dark-mode .border-emerald-200 { border-color: #065f46; }
+    body.dark-mode .border-emerald-300 { border-color: #047857; }
+    body.dark-mode .bg-emerald-50\/70 { background-color: #064e3b; }
+
+    body.dark-mode .text-blue-700 { color: #60a5fa; }
+    body.dark-mode .hover\:bg-blue-50:hover { background-color: #172554; }
+    body.dark-mode .border-blue-200 { border-color: #1e3a8a; }
+
+    body.dark-mode .text-violet-700 { color: #a78bfa; }
+    body.dark-mode .border-violet-200 { border-color: #4c1d95; }
+
+    body.dark-mode .hover\:bg-rose-50:hover { background-color: #4c0519; }
+    body.dark-mode .text-rose-600 { color: #fb7185; }
+    body.dark-mode .hover\:text-rose-700:hover { color: #f43f5e; }
+    body.dark-mode .border-rose-200 { border-color: #881337; }
+
+    body.dark-mode .bg-slate-900\/50 { background-color: rgba(15, 23, 42, 0.85); }
+
+    body.dark-mode .modal-field-row input { background-color: #0f172a !important; border-color: #334155 !important; color: #e2e8f0 !important; }
+    body.dark-mode .modal-field-row input:focus { background-color: #1e293b !important; }
+    body.dark-mode select { background-color: #0f172a !important; border-color: #334155 !important; color: #e2e8f0 !important; }
+    body.dark-mode textarea { background-color: #0f172a !important; border-color: #334155 !important; color: #e2e8f0 !important; }
+    body.dark-mode input:not(.modal-field-row input) { background-color: #0f172a !important; border-color: #334155 !important; color: #e2e8f0 !important; }
+    body.dark-mode input:not(.modal-field-row input):focus { background-color: #1e293b !important; }
+
+    body.dark-mode .bg-white.rounded-xl.shadow-sm {
+      background-color: #1e293b !important;
+      border-color: #334155 !important;
+      color: #e2e8f0 !important;
+    }
+    body.dark-mode .bg-slate-50\/80.rounded-b-xl {
+      background-color: #0f172a !important;
+      border-color: #334155 !important;
+    }
+    body.dark-mode .bg-white.rounded-xl.border {
+      background-color: #1e293b !important;
+      border-color: #334155 !important;
+    }
+    body.dark-mode .bg-white.p-3\.5.rounded-xl.border {
+      background-color: #1e293b !important;
+    }
+    body.dark-mode .bg-white.rounded-2xl.p-6 {
+      background-color: #1e293b !important;
+      border-color: #334155 !important;
+    }
+    body.dark-mode .bg-slate-50.p-1\.5.rounded.border {
+      background-color: #0f172a !important;
+      border-color: #334155 !important;
+    }
+
+    .search-nav-btn {
+      user-select: none;
+    }
+    .search-nav-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    #loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.5s ease;
+    }
+    #loading-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .loader {
+      width: 48px;
+      height: 48px;
+      border: 4px solid #e2e8f0;
+      border-top-color: #10b981;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Card styles for canvas */
+    .node-card {
+      transition: box-shadow 0.2s, transform 0.1s;
+      cursor: pointer;
+      user-select: none;
+      position: absolute;
+      min-width: 140px;
+      max-width: 200px;
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: white;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .node-card:hover {
+      box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+      z-index: 30;
+    }
+    .node-card .card-title {
+      font-weight: 700;
+      font-size: 13px;
+      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .node-card .card-subtitle {
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 500;
+    }
+    .node-card .card-badge {
+      display: inline-block;
+      padding: 0 6px;
+      border-radius: 4px;
+      font-size: 9px;
+      font-weight: 600;
+      background: #f1f5f9;
+      color: #475569;
+      margin-right: 3px;
+    }
+    .node-card .card-actions {
+      display: flex;
+      gap: 4px;
+      margin-top: 6px;
+      justify-content: flex-end;
+      opacity: 0.6;
+      transition: opacity 0.2s;
+    }
+    .node-card:hover .card-actions {
+      opacity: 1;
+    }
+    .node-card .card-actions button {
+      background: #f1f5f9;
+      border: none;
+      border-radius: 6px;
+      padding: 2px 6px;
+      font-size: 10px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .node-card .card-actions button:hover {
+      background: #e2e8f0;
+    }
+    .relation-dot {
+      position: absolute;
+      right: -6px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #8b5cf6;
+      border: 2px solid white;
+      box-shadow: 0 0 0 1px #8b5cf6;
+      cursor: crosshair;
+      transition: transform 0.2s, box-shadow 0.2s;
+      z-index: 5;
+    }
+    .relation-dot:hover {
+      transform: translateY(-50%) scale(1.25);
+      box-shadow: 0 0 0 2px #8b5cf6;
+    }
   </style>
 </head>
-<body>
+<body class="w-screen h-screen overflow-hidden bg-slate-100 text-slate-800 flex flex-col select-none">
 
+  <!-- Loading Overlay -->
   <div id="loading-overlay">
-    <div class="loader"></div>
-  </div>
-
-  <!-- Header -->
-  <div id="header">
-    <div>
-      <h1>🌿 Varlık ve Süreç Yönetim Haritası</h1>
-      <span id="header-stats">Yükleniyor...</span>
-      <span id="sync-status" class="status-badge" style="margin-left:8px;">☁️ Senkron</span>
-    </div>
-    <div style="display:flex; gap:8px; flex-wrap:wrap;">
-      <button class="btn btn-green" onclick="addNewTree()">➕ Yeni Ağaç</button>
-      <button class="btn btn-dark" onclick="toggleDarkMode()">🌙 Koyu Mod</button>
-      <button class="btn btn-blue" onclick="downloadJSON()">💾 JSON İndir</button>
-      <button class="btn btn-purple" onclick="uploadJSON()">📤 JSON Yükle</button>
+    <div class="flex flex-col items-center gap-4">
+      <div class="loader"></div>
+      <p class="text-white font-bold text-sm">Veri yükleniyor...</p>
     </div>
   </div>
 
-  <!-- Canvas -->
-  <div id="canvas-container">
-    <div id="canvas-stage">
-      <div id="nodes-layer"></div>
+  <!-- Top Navigation Bar -->
+  <header class="bg-white border-b border-slate-200 px-4 py-2.5 flex flex-wrap items-center justify-between z-30 shadow-xs gap-3 transition-colors">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+        🌿
+      </div>
+      <div>
+        <h1 class="text-sm font-bold text-slate-900 leading-tight flex items-center gap-2 transition-colors">
+          <span>Varlık ve Süreç Yönetim Haritası</span>
+          <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors">☁️ Senkron</span>
+        </h1>
+        <p class="text-[11px] text-slate-500 transition-colors" id="header-stats">
+          Yükleniyor...
+        </p>
+      </div>
     </div>
-    <div class="tip">🖱️ Kartları sürükleyin, tıklayarak düzenleyin</div>
-  </div>
 
+    <!-- Center View Switcher & Search & New Tree & Relations -->
+    <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+      <button onclick="addNewTree()" class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-xs">
+        <span>➕</span> <span>Yeni Ağaç</span>
+      </button>
+
+      <button onclick="openRelationModal()" class="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-xl transition shadow-xs">
+        <span>🔗</span> <span>Çapraz İlişkiler (<span id="header-rel-count">0</span>)</span>
+      </button>
+
+      <div class="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-semibold transition-colors">
+        <button id="btn-view-canvas" onclick="setViewMode('canvas')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-slate-900 shadow-xs transition-colors">
+          <span>🎨</span> <span>Tuval</span>
+        </button>
+        <button id="btn-view-outline" onclick="setViewMode('outline')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-colors">
+          <span>📋</span> <span>Hiyerarşi</span>
+        </button>
+      </div>
+
+      <div class="relative flex items-center min-w-[180px] sm:min-w-[240px]">
+        <input
+          type="text"
+          id="search-input"
+          placeholder="Düğüm, plaka veya alan ara..."
+          oninput="handleSearch(this.value)"
+          class="w-full bg-slate-100 border border-slate-200 text-slate-800 text-xs rounded-xl pl-8 pr-20 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-colors"
+        />
+        <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">🔍</span>
+        <span id="search-count-badge" class="hidden absolute right-2 text-[11px] font-bold px-2 py-0.5 rounded-full select-none"></span>
+        <button id="search-prev-btn" onclick="navigateSearchResult(-1)" class="search-nav-btn absolute right-14 top-1/2 -translate-y-1/2 p-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold transition disabled:opacity-30 disabled:cursor-not-allowed hidden" title="Önceki sonuç (↑)">▲</button>
+        <button id="search-next-btn" onclick="navigateSearchResult(1)" class="search-nav-btn absolute right-8 top-1/2 -translate-y-1/2 p-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold transition disabled:opacity-30 disabled:cursor-not-allowed hidden" title="Sonraki sonuç (↓)">▼</button>
+      </div>
+    </div>
+
+    <!-- Right Zoom & Export & Theme & Canvas Size Controls -->
+    <div class="flex items-center gap-2">
+      <div class="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-semibold transition-colors">
+        <button onclick="handleZoom(-0.15)" class="p-1.5 hover:bg-white rounded-lg text-slate-700 transition-colors" title="Uzaklaştır">➖</button>
+        <span id="zoom-text" class="px-2 font-mono text-slate-600 min-w-[46px] text-center text-[11px] transition-colors">100%</span>
+        <button onclick="handleZoom(0.15)" class="p-1.5 hover:bg-white rounded-lg text-slate-700 transition-colors" title="Yakınlaştır">➕</button>
+        <button onclick="handleZoomReset()" class="px-2 py-1 hover:bg-white rounded-lg text-slate-600 transition-colors text-[11px]" title="Tuvali sıfırla (zoom + konum)">Sıfırla</button>
+      </div>
+
+      <button onclick="setCanvasSize()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition shadow-xs border border-indigo-500">
+        <span>🖼️</span> <span>Tuval Boyutu</span>
+      </button>
+
+      <button onclick="toggleDarkMode()" id="theme-toggle" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition shadow-xs border border-slate-600">
+        <span id="theme-icon">🌙</span> <span id="theme-text">Koyu Mod</span>
+      </button>
+
+      <button onclick="downloadJSON()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition shadow-xs">
+        <span>💾</span> <span>JSON İndir</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main View Container -->
+  <main class="flex-1 relative overflow-hidden bg-slate-100 transition-colors">
+    <!-- CANVAS VIEW -->
+    <div
+      id="canvas-container"
+      class="absolute inset-0 overflow-hidden cursor-default"
+      style="background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 24px 24px;"
+    >
+      <div id="canvas-stage" class="absolute origin-top-left" style="width: 10000px; height: 10000px;">
+        <svg id="canvas-svg" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 1;"></svg>
+        <div id="tree-headers-layer" class="absolute inset-0" style="z-index: 10;"></div>
+        <div id="nodes-layer" class="absolute inset-0" style="z-index: 20;"></div>
+      </div>
+
+      <!-- Quick Canvas Tips Footer -->
+      <div class="absolute bottom-4 left-4 z-30 flex items-center gap-2 bg-white/95 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm text-xs text-slate-600 transition-colors">
+        <span class="font-bold text-slate-800 transition-colors">İpuçları:</span>
+        <span>🖱️ Tuvali kaydırmak için boşluğa sürükleyin</span>
+        <span class="text-slate-300">|</span>
+        <span>➕ Kartlardaki (+) ile alt dal, (🌿) ile kardeş ekleyin</span>
+        <span class="text-slate-300">|</span>
+        <span>🔗 Kartın sağındaki mor noktadan diğer karta çapraz ilişki bağlayın</span>
+      </div>
+
+      <!-- Floating Relation Connecting Status Bar -->
+      <div id="relation-connecting-bar" class="hidden absolute top-4 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 text-white px-4 py-2 rounded-2xl shadow-xl border border-violet-500/50 flex items-center gap-3 text-xs backdrop-blur-md">
+        <span class="text-base animate-pulse">🔗</span>
+        <div>
+          <span class="font-bold text-violet-300" id="rel-conn-source-name">Kaynak Düğüm</span>
+          <span class="text-slate-300"> &rarr; Çapraz bağlanacak hedef düğüme tıklayın</span>
+        </div>
+        <button onclick="cancelRelationConnect()" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold rounded-lg transition">İptal (ESC)</button>
+      </div>
+    </div>
+
+    <!-- OUTLINE VIEW -->
+    <div id="outline-container" class="hidden absolute inset-0 overflow-y-auto p-6 md:p-10 custom-scroll">
+      <div class="max-w-4xl mx-auto space-y-6" id="outline-content"></div>
+    </div>
+
+    <!-- Dedicated Cross-Relation Management & Edit Modal -->
+    <div id="relation-modal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh] transition-colors">
+        <div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-violet-50/70 transition-colors">
+          <div class="flex items-center gap-2.5">
+            <span class="w-7 h-7 rounded-lg bg-violet-600 text-white flex items-center justify-center text-sm font-bold shadow-xs">🔗</span>
+            <div>
+              <h3 id="rel-modal-title" class="font-bold text-slate-900 text-sm transition-colors">Çapraz Ağaç İlişkisi Oluştur / Düzenle</h3>
+              <p class="text-[11px] text-slate-500 transition-colors">Farklı ağaçlardaki düğümleri görsel bağlar ve etiketlerle ilişkilendirin.</p>
+            </div>
+          </div>
+          <button onclick="closeRelationModal()" class="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition font-bold">✕</button>
+        </div>
+
+        <div class="p-5 overflow-y-auto space-y-4 text-xs custom-scroll">
+          <input type="hidden" id="rel-edit-id" value="" />
+          
+          <!-- Source and Target selection -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1 transition-colors">Kaynak Düğüm (Başlangıç) *</label>
+              <select id="rel-source-select" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-violet-500 focus:outline-none transition-colors"></select>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1 transition-colors">Hedef Düğüm (Bitiş) *</label>
+              <select id="rel-target-select" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-violet-500 focus:outline-none transition-colors"></select>
+            </div>
+          </div>
+
+          <!-- Label and Line Style -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1 transition-colors">İlişki Etiketi / Açıklaması</label>
+              <input type="text" id="rel-label-input" placeholder="Örn: Poliçe Sahibi, Zimmet, Parça" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-violet-500 focus:outline-none transition-colors" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1 transition-colors">Çizgi Stili</label>
+              <select id="rel-style-select" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-violet-500 focus:outline-none transition-colors">
+                <option value="solid">➖ Düz Çizgi (Solid)</option>
+                <option value="dashed">┄ Kesikli Çizgi (Dashed)</option>
+                <option value="dotted">┈ Noktalı Çizgi (Dotted)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Color theme -->
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1.5 transition-colors">Çizgi Rengi</label>
+            <div class="flex items-center gap-2 flex-wrap" id="rel-color-picker-container"></div>
+          </div>
+
+          <!-- Existing relations list table -->
+          <div class="mt-4 pt-4 border-t border-slate-100 transition-colors">
+            <div class="flex items-center justify-between mb-2">
+              <span class="font-bold text-slate-800 transition-colors">Projedeki Tüm Çapraz İlişkiler (<span id="rel-modal-list-count">0</span>)</span>
+            </div>
+            <div id="rel-modal-list" class="space-y-2 max-h-40 overflow-y-auto custom-scroll pr-1"></div>
+          </div>
+        </div>
+
+        <!-- Modal Actions Footer -->
+        <div class="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between transition-colors">
+          <button type="button" id="rel-btn-delete" onclick="deleteCurrentEditingRelation()" class="hidden px-3 py-1.5 text-rose-600 hover:bg-rose-50 rounded-lg font-bold transition flex items-center gap-1">
+            <span>🗑️</span> <span>Bu İlişkiyi Sil</span>
+          </button>
+          <div class="flex-1"></div>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="closeRelationModal()" class="px-3.5 py-1.5 text-slate-600 hover:bg-slate-200 rounded-lg font-medium transition">İptal</button>
+            <button type="button" onclick="saveRelationModal()" class="px-4 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-bold transition shadow-xs flex items-center gap-1">
+              <span>💾</span> <span>Kaydet</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Node Detail / Edit Modal -->
+    <div id="node-modal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh] transition-colors">
+        <div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50 transition-colors">
+          <div class="flex items-center gap-2">
+            <span id="modal-header-icon" class="text-xl">📦</span>
+            <div>
+              <h3 id="modal-header-title" class="font-bold text-slate-900 text-sm transition-colors">Düğümü Düzenle</h3>
+              <p class="text-[11px] text-slate-500 transition-colors" id="modal-header-tree-name">Ağaç Bilgisi</p>
+            </div>
+          </div>
+          <button onclick="closeModal()" class="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition font-bold">✕</button>
+        </div>
+
+        <div class="p-5 overflow-y-auto space-y-4 text-xs custom-scroll" id="modal-body">
+          <!-- Title & Subtitle -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1 transition-colors">Düğüm Başlığı *</label>
+              <input type="text" id="edit-node-title" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-colors" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1 transition-colors">Alt Başlık / Kategori</label>
+              <input type="text" id="edit-node-subtitle" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-colors" />
+            </div>
+          </div>
+
+          <!-- Description -->
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1 transition-colors">Açıklama</label>
+            <textarea id="edit-node-description" rows="2" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none transition-colors"></textarea>
+          </div>
+
+          <!-- Icon & Color Selection -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1 transition-colors">İkon Seçimi</label>
+              <select id="edit-node-icon" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-colors">
+                <option value="tractor">🚜 Traktör / Tarım Aracı</option>
+                <option value="car">🚗 Otomobil / Araç</option>
+                <option value="wrench">🔧 Bakım / Tamir</option>
+                <option value="shield">🛡️ Sigorta / Kasko</option>
+                <option value="calendar">📅 Tarih / Muayene</option>
+                <option value="folder">📁 Klasör / Kategori</option>
+                <option value="box">📦 Kutu / Varlık</option>
+                <option value="building">🏢 Şirket / Bina</option>
+                <option value="dollar">💵 Finans / Değer</option>
+                <option value="user">👤 Kişi / Personel</option>
+                <option value="users">👥 Ekip / Departman</option>
+                <option value="database">🗄️ Veritabanı</option>
+                <option value="file">📄 Belge / Sözleşme</option>
+                <option value="tag">🏷️ Etiket / İşaret</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1 transition-colors">Renk Teması</label>
+              <select id="edit-node-color" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-colors">
+                <option value="emerald">🟢 Zümrüt Yeşili (Emerald)</option>
+                <option value="blue">🔵 Mavi (Blue)</option>
+                <option value="violet">🟣 Mor (Violet)</option>
+                <option value="amber">🟠 Amber / Sarı (Amber)</option>
+                <option value="rose">🔴 Gül Kurusu / Kırmızı (Rose)</option>
+                <option value="indigo">🔮 İndigo (Indigo)</option>
+                <option value="teal">🌊 Teal / Camgöbeği (Teal)</option>
+                <option value="orange">🍊 Turuncu (Orange)</option>
+                <option value="slate">⚪ Nötr Gri (Slate)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Tags -->
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1 transition-colors">Etiketler (Virgülle ayırarak yazın)</label>
+            <input type="text" id="edit-node-tags" placeholder="Örn: Aktif, Garanti Kapsamında, 2024" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-colors" />
+          </div>
+
+          <!-- Custom Fields List -->
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label class="font-semibold text-slate-700 transition-colors">Özel Alanlar & Değerler</label>
+              <button type="button" onclick="addModalFieldRow()" class="text-xs text-emerald-600 font-bold hover:text-emerald-700 flex items-center gap-1">
+                <span>➕ Alan Ekle</span>
+              </button>
+            </div>
+            <div id="modal-fields-container" class="space-y-2 max-h-48 overflow-y-auto custom-scroll pr-1"></div>
+          </div>
+
+          <!-- Connected Cross-Relations Section for this Node -->
+          <div class="pt-3 border-t border-slate-100 transition-colors">
+            <div class="flex items-center justify-between mb-2">
+              <label class="font-semibold text-slate-700 flex items-center gap-1.5 transition-colors">
+                <span>🔗 Çapraz İlişkiler</span>
+                <span id="modal-node-rel-badge" class="px-1.5 py-0.2 rounded-full text-[10px] bg-violet-100 text-violet-700 font-bold transition-colors">0</span>
+              </label>
+              <button type="button" onclick="startRelationFromCurrentModalNode()" class="text-xs text-violet-600 font-bold hover:text-violet-700 flex items-center gap-1">
+                <span>➕ Bu Düğümden İlişki Bağla</span>
+              </button>
+            </div>
+            <div id="modal-node-relations-list" class="space-y-1.5 text-[11px] max-h-32 overflow-y-auto custom-scroll"></div>
+          </div>
+        </div>
+
+        <!-- Modal Actions Footer -->
+        <div class="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between transition-colors">
+          <button type="button" onclick="deleteCurrentModalNode()" class="px-3 py-1.5 text-rose-600 hover:bg-rose-50 rounded-lg font-bold transition flex items-center gap-1">
+            <span>🗑️</span> <span>Bu Düğümü Sil</span>
+          </button>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="closeModal()" class="px-3.5 py-1.5 text-slate-600 hover:bg-slate-200 rounded-lg font-medium transition">İptal</button>
+            <button type="button" onclick="saveModalChanges()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition shadow-xs flex items-center gap-1">
+              <span>💾</span> <span>Kaydet</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Default Project Data (fallback) -->
+  <script id="project-data" type="application/json">
+{
+  "version": "1.0.0",
+  "projectName": "Varlık ve Süreç Yönetim Haritası",
+  "lastModified": "2026-08-27T21:37:17.281Z",
+  "trees": [
+    {
+      "id": "tree-assets",
+      "name": "Varlıklarım",
+      "x": 277,
+      "y": 32,
+      "rootNode": {
+        "id": "node-varliklarim",
+        "title": "Varlıklarım",
+        "subtitle": "Tüm Şirket & Bireysel Varlıklar",
+        "description": "Tüm taşınır, taşınmaz ve operasyonel ekipman envanteri",
+        "icon": "box",
+        "color": "emerald",
+        "collapsed": false,
+        "fields": [
+          { "id": "f1", "key": "Toplam Varlık Grubu", "value": "4 Ana Kategori", "type": "text" },
+          { "id": "f2", "key": "Son Güncelleme", "value": "2025-05-10", "type": "date" }
+        ],
+        "tags": ["Ana Ağaç", "Envanter"],
+        "children": [
+          {
+            "id": "node-araclarim",
+            "title": "Araçlarım",
+            "subtitle": "Motorlu ve Operasyonel Taşıtlar",
+            "description": "Tarımsal ve ticari taşıt filosu",
+            "icon": "car",
+            "color": "emerald",
+            "collapsed": false,
+            "fields": [
+              { "id": "f3", "key": "Toplam Araç", "value": "6 Adet", "type": "number" },
+              { "id": "f4", "key": "Filo Durumu", "value": "Aktif", "type": "badge" }
+            ],
+            "tags": ["Filo", "Lojistik"],
+            "children": [
+              {
+                "id": "node-traktorler",
+                "title": "Traktörler",
+                "subtitle": "Ağır Saha & Çiftlik Ekipmanları",
+                "icon": "tractor",
+                "color": "blue",
+                "collapsed": false,
+                "fields": [{ "id": "f5", "key": "Çalışma Sahası", "value": "Bursa / Yenişehir", "type": "text" }],
+                "tags": ["Tarım", "Makine"],
+                "children": [
+                  {
+                    "id": "node-erkunt",
+                    "title": "Erkunt Traktör",
+                    "subtitle": "Haşmet 110 Lüks Kabinli",
+                    "description": "Ana tarla sürüm ve taşıma traktörü",
+                    "icon": "tractor",
+                    "color": "blue",
+                    "collapsed": false,
+                    "fields": [
+                      { "id": "f6", "key": "Model Yılı", "value": "2022", "type": "number" },
+                      { "id": "f7", "key": "Plaka", "value": "16 ERK 77", "type": "text" },
+                      { "id": "f8", "key": "Çalışma Saati", "value": "1420 Saat", "type": "text" },
+                      { "id": "f9", "key": "Piyasa Değeri", "value": "1.450.000 ₺", "type": "currency" }
+                    ],
+                    "tags": ["Erkunt", "Haşmet-110"],
+                    "children": [
+                      {
+                        "id": "node-erkunt-sigorta",
+                        "title": "Sigorta Tarihi & Poliçe",
+                        "subtitle": "Kasko & Zorunlu Trafik",
+                        "icon": "shield",
+                        "color": "amber",
+                        "collapsed": false,
+                        "fields": [
+                          { "id": "f10", "key": "Bitiş Tarihi", "value": "2025-09-15", "type": "date" },
+                          { "id": "f11", "key": "Poliçe No", "value": "POL-8823901", "type": "text" },
+                          { "id": "f12", "key": "Yıllık Prim", "value": "24.500 ₺", "type": "currency" },
+                          { "id": "f13", "key": "Durum", "value": "Poliçe Yürürlükte", "type": "badge" }
+                        ],
+                        "tags": ["Sigorta", "Kasko"],
+                        "children": []
+                      },
+                      {
+                        "id": "node-erkunt-bakim",
+                        "title": "Periyodik Bakım Kaydı",
+                        "subtitle": "Yetkili Servis Bakımı",
+                        "icon": "wrench",
+                        "color": "slate",
+                        "collapsed": false,
+                        "fields": [
+                          { "id": "f14", "key": "Son Bakım Tarihi", "value": "2025-03-20", "type": "date" },
+                          { "id": "f15", "key": "Gelecek Bakım (Saat)", "value": "1750 Saat", "type": "text" },
+                          { "id": "f16", "key": "Yapılan İşlem", "value": "Yağ & Filtre Değişimi", "type": "text" }
+                        ],
+                        "tags": ["Servis", "Bakım"],
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "id": "node-new-holland",
+                    "title": "New Holland T5",
+                    "subtitle": "T5.115 Electro Command",
+                    "icon": "tractor",
+                    "color": "indigo",
+                    "collapsed": true,
+                    "fields": [
+                      { "id": "f17", "key": "Model Yılı", "value": "2021", "type": "number" },
+                      { "id": "f18", "key": "Plaka", "value": "16 NH 550", "type": "text" }
+                    ],
+                    "tags": ["New-Holland"],
+                    "children": [
+                      {
+                        "id": "node-arac-giderleri-butce",
+                        "title": "Araç Bakım & Sigorta Tahsisatı",
+                        "subtitle": "Traktör & Taşıt Bütçe Fonu",
+                        "icon": "dollar",
+                        "color": "orange",
+                        "collapsed": false,
+                        "fields": [
+                          { "id": "f42", "key": "Ayrılan Bütçe", "value": "95.000 ₺", "type": "currency" },
+                          { "id": "f43", "key": "Kalan Kullanım", "value": "70.500 ₺", "type": "currency" }
+                        ],
+                        "tags": ["Gider Havuzu"],
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "node-bicerdover",
+                "title": "Biçerdöverler",
+                "subtitle": "Hasat Makineleri",
+                "icon": "wrench",
+                "color": "amber",
+                "collapsed": false,
+                "fields": [{ "id": "f19", "key": "Adet", "value": "1", "type": "number" }],
+                "children": [
+                  {
+                    "id": "node-claas",
+                    "title": "Claas Lexion 770",
+                    "subtitle": "2020 Model Hasat Makinesi",
+                    "icon": "wrench",
+                    "color": "amber",
+                    "fields": [],
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "node-gayrimenkuller",
+            "title": "Gayrimenkul & Araziler",
+            "subtitle": "Tarım Arazileri & Tesisler",
+            "icon": "building",
+            "color": "teal",
+            "collapsed": false,
+            "fields": [{ "id": "f20", "key": "Toplam Alan", "value": "120 Dönüm", "type": "text" }],
+            "children": [
+              {
+                "id": "node-tarla-1",
+                "title": "Yenişehir Sulu Tarla",
+                "subtitle": "45 Dönüm Yonca / Mısır",
+                "icon": "tag",
+                "color": "teal",
+                "fields": [
+                  { "id": "f21", "key": "Ada / Parsel", "value": "142 / 12", "type": "text" },
+                  { "id": "f22", "key": "Sulama Tipi", "value": "Damlama", "type": "text" }
+                ],
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "tree-budget",
+      "name": "Finansman & Bütçe",
+      "x": 177,
+      "y": 746,
+      "rootNode": {
+        "id": "node-butce-plan",
+        "title": "Yıllık Bütçe Planı 2025",
+        "subtitle": "Gider Kalemleri ve Tahsisler",
+        "icon": "dollar",
+        "color": "orange",
+        "collapsed": false,
+        "fields": [
+          { "id": "f40", "key": "Dönem", "value": "2025 Mali Yılı", "type": "text" },
+          { "id": "f41", "key": "Toplam Bütçe", "value": "650.000 ₺", "type": "currency" }
+        ],
+        "tags": ["Maliye", "Bütçe"],
+        "children": []
+      }
+    }
+  ],
+  "relations": [
+    {
+      "id": "rel-erkunt-butce",
+      "sourceNodeId": "node-erkunt",
+      "targetNodeId": "node-arac-giderleri-butce",
+      "label": "Bütçe Tahsis Kalemi",
+      "type": "flow",
+      "color": "#f97316",
+      "style": "dotted"
+    }
+  ]
+}
+  </script>
+
+  <!-- ============================== -->
+  <!-- TÜM JAVASCRIPT KODU (EKSİKSİZ) -->
+  <!-- ============================== -->
   <script>
     (function() {
       // ============================================================
-      // 🔥 FİREBASE CONFIG (SENİN VERİLERİN)
+      // 🔥 FIREBASE YAPILANDIRMASI
       // ============================================================
       const firebaseConfig = {
         apiKey: "AIzaSyDCq3E5DieTAZy0gB8xG1kdJPC3v2JZWSo",
@@ -83,503 +835,1156 @@
         appId: "1:51532098566:web:4b821a587080fd25ada787",
         measurementId: "G-GXJ8K3ZQ9T"
       };
-
       firebase.initializeApp(firebaseConfig);
       const db = firebase.database();
-      const dataRef = db.ref('treeData');
-      const accessCodeRef = db.ref('accessCode');
+      const DB_PATH = 'treeData';
 
       // ============================================================
-      // VARSIYILAN VERİ
-      // ============================================================
-      const defaultProject = {
-        version: "1.0.0",
-        projectName: "Varlık ve Süreç Yönetim Haritası",
-        lastModified: new Date().toISOString(),
-        trees: [
-          {
-            id: "tree1",
-            name: "Varlıklarım",
-            x: 100,
-            y: 100,
-            rootNode: {
-              id: "node1",
-              title: "Varlıklarım",
-              subtitle: "Tüm şirket varlıkları",
-              icon: "box",
-              color: "emerald",
-              fields: [],
-              tags: [],
-              children: []
-            }
-          },
-          {
-            id: "tree2",
-            name: "Bütçe Planı",
-            x: 420,
-            y: 160,
-            rootNode: {
-              id: "node2",
-              title: "Bütçe 2025",
-              subtitle: "Yıllık bütçe kalemleri",
-              icon: "dollar",
-              color: "orange",
-              fields: [],
-              tags: [],
-              children: []
-            }
-          },
-          {
-            id: "tree3",
-            name: "Projeler",
-            x: 740,
-            y: 80,
-            rootNode: {
-              id: "node3",
-              title: "Aktif Projeler",
-              subtitle: "Devam eden projeler",
-              icon: "folder",
-              color: "blue",
-              fields: [],
-              tags: [],
-              children: []
-            }
-          }
-        ],
-        relations: []
-      };
-
-      // ============================================================
-      // STATE
+      // GLOBAL STATE
       // ============================================================
       let project = null;
-      let panX = 0, panY = 0, zoom = 1.0;
-      let dragData = null;
-      let darkMode = localStorage.getItem('theme-preference') === 'dark';
-      let isFirebaseConnected = false;
+      let viewMode = 'canvas';
+      let panX = 40, panY = 40, zoom = 1.0;
+      let searchQuery = '';
+      let isPanning = false;
+      let panStartX = 0, panStartY = 0;
+      let selectedNodeId = null;
+      let canvasWidth = 10000, canvasHeight = 10000;
+      let relationConnectingSourceId = null;
+      let mouseCanvasX = 0, mouseCanvasY = 0;
+      let selectedRelColor = '#8b5cf6';
+      let searchResults = [];
+      let currentSearchIndex = -1;
+      let editingNodeId = null;
+      let nodePositions = {}; // düğüm id -> {x, y} (canvas koordinatları)
+      let isDarkMode = false;
+      let isFirebaseUpdate = false; // geri döngüyü önlemek için
 
       // ============================================================
-      // DOM REFERANSLARI
+      // FIREBASE OKUMA / YAZMA
       // ============================================================
-      const overlay = document.getElementById('loading-overlay');
-      const nodesLayer = document.getElementById('nodes-layer');
-      const stage = document.getElementById('canvas-stage');
-      const container = document.getElementById('canvas-container');
-      const syncStatus = document.getElementById('sync-status');
-
-      // ============================================================
-      // FİREBASE OKU / YAZ
-      // ============================================================
-      function loadFromFirebase() {
-        return new Promise((resolve) => {
-          dataRef.once('value').then((snapshot) => {
-            const val = snapshot.val();
-            if (val) {
-              project = val;
-              isFirebaseConnected = true;
-              syncStatus.textContent = '☁️ Senkron';
-              syncStatus.className = 'status-badge';
-              resolve(true);
-            } else {
-              resolve(false);
-            }
-          }).catch((err) => {
-            console.warn('Firebase okuma hatası:', err);
-            isFirebaseConnected = false;
-            syncStatus.textContent = '⚠️ Çevrimdışı';
-            syncStatus.className = 'status-badge offline';
-            resolve(false);
-          });
+      function loadDataFromFirebase() {
+        document.getElementById('loading-overlay').classList.remove('hidden');
+        dataRef.once('value', (snapshot) => {
+          const val = snapshot.val();
+          if (val) {
+            project = val;
+          } else {
+            const defaultData = JSON.parse(document.getElementById('project-data').textContent);
+            project = defaultData;
+            dataRef.set(project).catch(err => console.error('Yazma hatası:', err));
+          }
+          document.getElementById('loading-overlay').classList.add('hidden');
+          afterDataLoaded();
+        }).catch((err) => {
+          console.error('Veri okuma hatası:', err);
+          document.getElementById('loading-overlay').classList.add('hidden');
+          alert('Firebase\'den veri okunamadı. Lütfen internet bağlantınızı kontrol edin.');
         });
       }
 
-      function saveToFirebase() {
+      // Gerçek zamanlı dinleme
+      function startRealtimeListener() {
+        dataRef.on('value', (snapshot) => {
+          const val = snapshot.val();
+          if (val && !isFirebaseUpdate) {
+            project = val;
+            afterDataLoaded();
+          }
+        });
+      }
+
+      function saveProjectToFirebase() {
         if (!project) return;
         project.lastModified = new Date().toISOString();
+        isFirebaseUpdate = true;
         dataRef.set(project).then(() => {
-          isFirebaseConnected = true;
-          syncStatus.textContent = '☁️ Senkron';
-          syncStatus.className = 'status-badge';
+          isFirebaseUpdate = false;
         }).catch((err) => {
-          console.warn('Firebase yazma hatası:', err);
-          isFirebaseConnected = false;
-          syncStatus.textContent = '⚠️ Çevrimdışı';
-          syncStatus.className = 'status-badge offline';
+          console.error('Veri yazma hatası:', err);
+          isFirebaseUpdate = false;
+          alert('Değişiklikler kaydedilemedi. Lütfen tekrar deneyin.');
         });
-      }
-
-      // ============================================================
-      // YEREL DEPOLAMA
-      // ============================================================
-      function saveToLocal() {
-        try { localStorage.setItem('treeProject', JSON.stringify(project)); } catch(e) {}
-      }
-
-      function loadFromLocal() {
-        try {
-          const saved = localStorage.getItem('treeProject');
-          if (saved) {
-            project = JSON.parse(saved);
-            return true;
-          }
-        } catch(e) {}
-        return false;
-      }
-
-      // ============================================================
-      // KAYDET (Local + Firebase)
-      // ============================================================
-      function saveProject() {
-        saveToLocal();
-        saveToFirebase();
+        // local backup
+        try { localStorage.setItem('firebase_backup', JSON.stringify(project)); } catch(e) {}
         updateStats();
       }
 
       // ============================================================
-      // VERİ YÜKLE (Önce Firebase, sonra Local)
+      // VERİ YÜKLENDİKTEN SONRA
       // ============================================================
-      async function loadProject() {
-        overlay.classList.remove('hidden');
-        const loaded = await loadFromFirebase();
-        if (!loaded) {
-          // Firebase'de veri yok, localStorage'dan dene
-          if (!loadFromLocal()) {
-            // Hiç veri yoksa varsayılanı kullan
-            project = JSON.parse(JSON.stringify(defaultProject));
-            saveToLocal();
-            saveToFirebase();
+      function afterDataLoaded() {
+        // Varsayılan olarak relations dizisi yoksa oluştur
+        if (!project.relations) project.relations = [];
+        // Tüm ağaçların rootNode'larının id'lerini kontrol et
+        project.trees.forEach(tree => {
+          if (!tree.rootNode) {
+            tree.rootNode = createDefaultRootNode();
           }
-        }
-        overlay.classList.add('hidden');
-        render();
-      }
-
-      // ============================================================
-      // RENDER
-      // ============================================================
-      function render() {
-        if (!project) return;
-        if (!nodesLayer || !stage) return;
-
-        // Transform
-        stage.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})`;
-        container.style.backgroundPosition = `${panX}px ${panY}px`;
-        container.style.backgroundSize = `${24 * zoom}px ${24 * zoom}px`;
-
-        const colors = ['#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ef4444', '#14b8a6', '#f97316'];
-
-        nodesLayer.innerHTML = project.trees.map((tree, idx) => {
-          const node = tree.rootNode;
-          const color = colors[idx % colors.length];
-          const icon = getIcon(node.icon);
-          return `
-            <div class="card" 
-                 style="left:${tree.x}px; top:${tree.y}px; border:2px solid ${color};"
-                 data-tree-id="${tree.id}"
-                 onclick="onCardClick('${tree.id}')"
-                 onmousedown="startDrag(event, '${tree.id}')"
-                 ontouchstart="startDragTouch(event, '${tree.id}')">
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span style="font-size:22px;">${icon}</span>
-                <span style="font-weight:bold; font-size:15px; color:${darkMode ? '#f1f5f9' : '#0f172a'};">${escapeHtml(node.title)}</span>
-              </div>
-              ${node.subtitle ? `<div style="font-size:12px; color:#64748b; margin-top:2px;">${escapeHtml(node.subtitle)}</div>` : ''}
-              <div style="margin-top:8px; font-size:11px; color:#94a3b8;">${node.children?.length || 0} alt dal</div>
-            </div>
-          `;
-        }).join('');
-
-        // Karanlık modda kart arkaplanlarını güncelle
-        if (darkMode) {
-          document.querySelectorAll('.card').forEach(el => {
-            el.style.background = '#1e293b';
-            el.style.color = '#e2e8f0';
-          });
-        }
-
+        });
         updateStats();
+        renderCanvas();
+        renderOutline();
+        // Arama sonuçlarını temizle
+        searchResults = [];
+        currentSearchIndex = -1;
+        document.getElementById('search-count-badge').classList.add('hidden');
+        document.getElementById('search-prev-btn').classList.add('hidden');
+        document.getElementById('search-next-btn').classList.add('hidden');
+        // İlişki renk seçicisini doldur
+        populateRelationColorPicker();
+        // Düğüm seçim dropdown'larını doldur
+        populateNodeSelects();
+        // Tüm ilişki listesini güncelle
+        renderRelationList();
       }
 
-      // ============================================================
-      // KART TIKLAMA (Düzenle)
-      // ============================================================
-      window.onCardClick = function(treeId) {
-        const tree = project.trees.find(t => t.id === treeId);
-        if (!tree) return;
-        const newTitle = prompt('Düğüm başlığını değiştir:', tree.rootNode.title);
-        if (newTitle && newTitle.trim()) {
-          tree.rootNode.title = newTitle.trim();
-          saveProject();
-          render();
-        }
-      };
-
-      // ============================================================
-      // SÜRÜKLEME (Mouse)
-      // ============================================================
-      window.startDrag = function(e, treeId) {
-        e.preventDefault();
-        const tree = project.trees.find(t => t.id === treeId);
-        if (!tree) return;
-        const rect = e.target.closest('.card').getBoundingClientRect();
-        dragData = {
-          tree,
-          startX: tree.x,
-          startY: tree.y,
-          offsetX: e.clientX - rect.left,
-          offsetY: e.clientY - rect.top
+      function createDefaultRootNode() {
+        return {
+          id: 'node-' + Date.now(),
+          title: 'Yeni Kök',
+          subtitle: '',
+          description: '',
+          icon: 'box',
+          color: 'emerald',
+          collapsed: false,
+          fields: [],
+          tags: [],
+          children: []
         };
-        document.addEventListener('mousemove', onDragMove);
-        document.addEventListener('mouseup', onDragEnd);
-        e.target.closest('.card').style.cursor = 'grabbing';
-      };
-
-      function onDragMove(e) {
-        if (!dragData) return;
-        const rect = container.getBoundingClientRect();
-        const dx = (e.clientX - dragData.offsetX - rect.left - panX) / zoom;
-        const dy = (e.clientY - dragData.offsetY - rect.top - panY) / zoom;
-        dragData.tree.x = Math.round(dx);
-        dragData.tree.y = Math.round(dy);
-        render();
-      }
-
-      function onDragEnd() {
-        if (dragData) {
-          saveProject();
-          dragData = null;
-          document.querySelectorAll('.card').forEach(el => el.style.cursor = 'grab');
-        }
-        document.removeEventListener('mousemove', onDragMove);
-        document.removeEventListener('mouseup', onDragEnd);
       }
 
       // ============================================================
-      // SÜRÜKLEME (Touch)
+      // İSTATİSTİKLER
       // ============================================================
-      window.startDragTouch = function(e, treeId) {
-        const touch = e.touches[0];
-        if (!touch) return;
-        const tree = project.trees.find(t => t.id === treeId);
-        if (!tree) return;
-        const rect = e.target.closest('.card').getBoundingClientRect();
-        dragData = {
-          tree,
-          startX: tree.x,
-          startY: tree.y,
-          offsetX: touch.clientX - rect.left,
-          offsetY: touch.clientY - rect.top,
-          isTouch: true
-        };
-        document.addEventListener('touchmove', onTouchDragMove, { passive: false });
-        document.addEventListener('touchend', onTouchDragEnd);
-        e.preventDefault();
-      };
-
-      function onTouchDragMove(e) {
-        e.preventDefault();
-        if (!dragData) return;
-        const touch = e.touches[0];
-        if (!touch) return;
-        const rect = container.getBoundingClientRect();
-        const dx = (touch.clientX - dragData.offsetX - rect.left - panX) / zoom;
-        const dy = (touch.clientY - dragData.offsetY - rect.top - panY) / zoom;
-        dragData.tree.x = Math.round(dx);
-        dragData.tree.y = Math.round(dy);
-        render();
-      }
-
-      function onTouchDragEnd() {
-        if (dragData) {
-          saveProject();
-          dragData = null;
-        }
-        document.removeEventListener('touchmove', onTouchDragMove);
-        document.removeEventListener('touchend', onTouchDragEnd);
-      }
-
-      // ============================================================
-      // YENİ AĞAÇ EKLE
-      // ============================================================
-      window.addNewTree = function() {
-        const name = prompt('Yeni ağaç adı girin:', 'Yeni Ağaç');
-        if (!name?.trim()) return;
-        let maxY = 40;
-        project.trees.forEach(t => { if (t.y > maxY) maxY = t.y; });
-        const newTree = {
-          id: 'tree_' + Date.now(),
-          name: name.trim(),
-          x: Math.floor(Math.random() * 600) + 50,
-          y: maxY + 300 + Math.floor(Math.random() * 100),
-          rootNode: {
-            id: 'node_' + Date.now(),
-            title: name.trim(),
-            subtitle: 'Yeni Kategori',
-            icon: 'folder',
-            color: 'emerald',
-            fields: [],
-            tags: [],
-            children: []
-          }
-        };
-        project.trees.push(newTree);
-        saveProject();
-        render();
-      };
-
-      // ============================================================
-      // JSON YÜKLE
-      // ============================================================
-      window.uploadJSON = function() {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.json,application/json';
-        input.onchange = function(e) {
-          const file = e.target.files[0];
-          if (!file) return;
-          const reader = new FileReader();
-          reader.onload = function(ev) {
-            try {
-              const data = JSON.parse(ev.target.result);
-              if (!data.trees || !Array.isArray(data.trees)) {
-                throw new Error('Geçersiz JSON: "trees" dizisi eksik.');
-              }
-              if (!data.relations || !Array.isArray(data.relations)) {
-                data.relations = [];
-              }
-              project = data;
-              saveProject();
-              render();
-              alert('✅ JSON başarıyla yüklendi!');
-            } catch (err) {
-              alert('❌ Hata: Geçersiz JSON dosyası! Detay: ' + err.message);
-              console.error(err);
-            }
-          };
-          reader.readAsText(file);
-        };
-        input.click();
-      };
-
-      // ============================================================
-      // JSON İNDİR
-      // ============================================================
-      window.downloadJSON = function() {
-        const str = JSON.stringify(project, null, 2);
-        const blob = new Blob([str], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = (project.projectName || 'agac-projesi').toLowerCase().replace(/\s+/g, '-') + '.json';
-        a.click();
-      };
-
-      // ============================================================
-      // YARDIMCI FONKSİYONLAR
-      // ============================================================
-      function escapeHtml(str) { if (!str) return ''; return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
-
-      function getIcon(name) {
-        const icons = { folder:'📁', box:'📦', car:'🚗', tractor:'🚜', shield:'🛡️', calendar:'📅', wrench:'🔧', building:'🏢', dollar:'💵', tag:'🏷️', file:'📄', user:'👤', users:'👥', database:'🗄️' };
-        return icons[name?.toLowerCase()] || '📦';
-      }
-
       function updateStats() {
         if (!project) return;
         let totalNodes = 0;
-        const count = (n) => { totalNodes++; if (n.children) n.children.forEach(count); };
-        project.trees.forEach(t => count(t.rootNode));
-        document.getElementById('header-stats').textContent = `Toplam ${project.trees.length} Ağaç • ${totalNodes} Düğüm • ${project.relations?.length || 0} İlişki`;
+        const countNodes = (n) => {
+          totalNodes++;
+          if (n.children) n.children.forEach(countNodes);
+        };
+        project.trees.forEach(t => countNodes(t.rootNode));
+
+        const statsEl = document.getElementById('header-stats');
+        if (statsEl) {
+          statsEl.innerHTML = `Toplam ${project.trees.length} Kök Ağaç &bull; ${totalNodes} Düğüm &bull; ${project.relations.length} Çapraz İlişki &bull; ☁️ Senkron`;
+        }
+        const relCount = document.getElementById('header-rel-count');
+        if (relCount) relCount.textContent = String(project.relations.length);
+        // İlişki listesini güncelle (modal açık değilse sorun yok)
+        renderRelationList();
+      }
+
+      // ============================================================
+      // NAVIGATION / VIEW MODE
+      // ============================================================
+      function setViewMode(mode) {
+        viewMode = mode;
+        const canvas = document.getElementById('canvas-container');
+        const outline = document.getElementById('outline-container');
+        const btnCanvas = document.getElementById('btn-view-canvas');
+        const btnOutline = document.getElementById('btn-view-outline');
+        if (mode === 'canvas') {
+          canvas.classList.remove('hidden');
+          outline.classList.add('hidden');
+          btnCanvas.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-slate-900 shadow-xs transition-colors';
+          btnOutline.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-colors';
+          renderCanvas();
+        } else {
+          canvas.classList.add('hidden');
+          outline.classList.remove('hidden');
+          btnOutline.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-slate-900 shadow-xs transition-colors';
+          btnCanvas.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-colors';
+          renderOutline();
+        }
+      }
+
+      // ============================================================
+      // AÇIKLAMA GÖRÜNÜMÜ (OUTLINE)
+      // ============================================================
+      function renderOutline() {
+        const container = document.getElementById('outline-content');
+        if (!project) return;
+        let html = '';
+        project.trees.forEach(tree => {
+          html += `<div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 transition-colors">
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <span>🌳</span> ${tree.name}
+            </h3>
+            <div class="mt-2 space-y-1 text-xs text-slate-700">
+              ${renderNodeOutline(tree.rootNode, 0)}
+            </div>
+          </div>`;
+        });
+        container.innerHTML = html || '<p class="text-slate-500 text-sm">Henüz ağaç yok.</p>';
+      }
+
+      function renderNodeOutline(node, depth) {
+        if (!node) return '';
+        const pad = depth * 20;
+        let html = `<div style="padding-left:${pad}px" class="flex items-start gap-2 py-1 border-b border-slate-100 last:border-0">
+          <span class="text-base">${getIcon(node.icon)}</span>
+          <div>
+            <div class="font-semibold">${node.title}</div>
+            ${node.subtitle ? `<div class="text-[10px] text-slate-500">${node.subtitle}</div>` : ''}
+          </div>
+        </div>`;
+        if (node.children) {
+          node.children.forEach(child => {
+            html += renderNodeOutline(child, depth + 1);
+          });
+        }
+        return html;
+      }
+
+      function getIcon(iconKey) {
+        const map = {
+          tractor: '🚜', car: '🚗', wrench: '🔧', shield: '🛡️', calendar: '📅',
+          folder: '📁', box: '📦', building: '🏢', dollar: '💵', user: '👤',
+          users: '👥', database: '🗄️', file: '📄', tag: '🏷️'
+        };
+        return map[iconKey] || '📦';
+      }
+
+      // ============================================================
+      // CANVAS RENDER
+      // ============================================================
+      function renderCanvas() {
+        if (!project) return;
+        const stage = document.getElementById('canvas-stage');
+        const treeHeadersLayer = document.getElementById('tree-headers-layer');
+        const nodesLayer = document.getElementById('nodes-layer');
+        const svg = document.getElementById('canvas-svg');
+
+        // Uygula zoom ve pan
+        stage.style.transform = `scale(${zoom}) translate(${panX}px, ${panY}px)`;
+
+        // SVG'yi temizle
+        svg.innerHTML = '';
+
+        // Ağaç başlıklarını ve düğümleri çiz
+        treeHeadersLayer.innerHTML = '';
+        nodesLayer.innerHTML = '';
+
+        // Önce tüm düğümlerin pozisyonlarını hesapla (eğer kaydedilmemişse)
+        computeNodePositions();
+
+        // Ağaç başlıkları
+        project.trees.forEach(tree => {
+          const headerDiv = document.createElement('div');
+          headerDiv.className = 'absolute flex items-center gap-2 text-sm font-bold text-slate-800 bg-white/90 px-3 py-1.5 rounded-xl shadow-sm border border-slate-200 transition-colors';
+          headerDiv.style.left = tree.x + 'px';
+          headerDiv.style.top = tree.y + 'px';
+          headerDiv.style.transform = 'translateY(-50%)';
+          headerDiv.innerHTML = `
+            <span>🌳</span> ${tree.name}
+            <button onclick="editTreeName('${tree.id}')" class="text-xs text-slate-400 hover:text-slate-700">✏️</button>
+            <button onclick="deleteTree('${tree.id}')" class="text-xs text-rose-400 hover:text-rose-600">🗑️</button>
+          `;
+          treeHeadersLayer.appendChild(headerDiv);
+        });
+
+        // Çizgiler (çapraz ilişkiler ve hiyerarşik bağlantılar)
+        drawRelations(svg);
+        drawHierarchyLines(svg);
+
+        // Düğüm kartlarını çiz
+        project.trees.forEach(tree => {
+          drawNode(tree.rootNode, tree, nodesLayer);
+        });
+
+        // Arama vurgulama
+        if (searchQuery.length > 0) {
+          highlightSearchResults();
+        }
+      }
+
+      // ============================================================
+      // DÜĞÜM POZİSYON HESAPLAMA (basit tree layout)
+      // ============================================================
+      function computeNodePositions() {
+        nodePositions = {};
+        project.trees.forEach(tree => {
+          const startX = tree.x + 60;
+          const startY = tree.y + 40;
+          layoutNode(tree.rootNode, startX, startY, 0);
+        });
+      }
+
+      function layoutNode(node, x, y, depth) {
+        if (!node) return;
+        nodePositions[node.id] = { x, y };
+        // Çocukları yatay olarak sırala
+        if (node.children && node.children.length > 0) {
+          const childCount = node.children.length;
+          const spacingX = 240;
+          const spacingY = 100;
+          const totalWidth = (childCount - 1) * spacingX;
+          const startX = x - totalWidth / 2;
+          node.children.forEach((child, idx) => {
+            const childX = startX + idx * spacingX;
+            const childY = y + spacingY;
+            layoutNode(child, childX, childY, depth + 1);
+          });
+        }
+      }
+
+      // ============================================================
+      // HİYERARŞİK ÇİZGİLER (SVG)
+      // ============================================================
+      function drawHierarchyLines(svg) {
+        const ns = 'http://www.w3.org/2000/svg';
+        project.trees.forEach(tree => {
+          drawNodeLines(tree.rootNode, svg, ns);
+        });
+      }
+
+      function drawNodeLines(node, svg, ns) {
+        if (!node || !node.children) return;
+        const pos = nodePositions[node.id];
+        if (!pos) return;
+        node.children.forEach(child => {
+          const childPos = nodePositions[child.id];
+          if (!childPos) return;
+          const line = document.createElementNS(ns, 'line');
+          line.setAttribute('x1', pos.x + 50);
+          line.setAttribute('y1', pos.y + 30);
+          line.setAttribute('x2', childPos.x + 50);
+          line.setAttribute('y2', childPos.y + 10);
+          line.setAttribute('stroke', '#94a3b8');
+          line.setAttribute('stroke-width', '1.5');
+          line.setAttribute('stroke-dasharray', '4,4');
+          svg.appendChild(line);
+          drawNodeLines(child, svg, ns);
+        });
+      }
+
+      // ============================================================
+      // ÇAPRAZ İLİŞKİ ÇİZGİLERİ
+      // ============================================================
+      function drawRelations(svg) {
+        if (!project.relations) return;
+        const ns = 'http://www.w3.org/2000/svg';
+        project.relations.forEach(rel => {
+          const sourcePos = nodePositions[rel.sourceNodeId];
+          const targetPos = nodePositions[rel.targetNodeId];
+          if (!sourcePos || !targetPos) return;
+          const line = document.createElementNS(ns, 'line');
+          line.setAttribute('x1', sourcePos.x + 70);
+          line.setAttribute('y1', sourcePos.y + 20);
+          line.setAttribute('x2', targetPos.x + 20);
+          line.setAttribute('y2', targetPos.y + 20);
+          line.setAttribute('stroke', rel.color || '#8b5cf6');
+          line.setAttribute('stroke-width', '2');
+          if (rel.style === 'dashed') {
+            line.setAttribute('stroke-dasharray', '6,4');
+          } else if (rel.style === 'dotted') {
+            line.setAttribute('stroke-dasharray', '2,4');
+          } else {
+            line.setAttribute('stroke-dasharray', 'none');
+          }
+          // Ok ucu (isteğe bağlı)
+          svg.appendChild(line);
+          // Etiket
+          if (rel.label) {
+            const text = document.createElementNS(ns, 'text');
+            const midX = (sourcePos.x + targetPos.x) / 2;
+            const midY = (sourcePos.y + targetPos.y) / 2 - 6;
+            text.setAttribute('x', midX);
+            text.setAttribute('y', midY);
+            text.setAttribute('fill', '#475569');
+            text.setAttribute('font-size', '9');
+            text.setAttribute('font-weight', '500');
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('class', 'pointer-events-none');
+            text.textContent = rel.label;
+            svg.appendChild(text);
+          }
+        });
+      }
+
+      // ============================================================
+      // DÜĞÜM KARTLARINI ÇİZ
+      // ============================================================
+      function drawNode(node, tree, layer) {
+        if (!node) return;
+        const pos = nodePositions[node.id];
+        if (!pos) return;
+        const card = document.createElement('div');
+        card.className = 'node-card';
+        card.style.left = pos.x + 'px';
+        card.style.top = pos.y + 'px';
+        card.dataset.nodeId = node.id;
+
+        // Renk sınıfı
+        const colorClass = getColorClass(node.color);
+        card.style.borderColor = colorClass.border;
+        card.style.background = colorClass.bg;
+
+        // İçerik
+        const icon = getIcon(node.icon);
+        card.innerHTML = `
+          <div class="card-title">
+            <span>${icon}</span>
+            <span>${node.title}</span>
+          </div>
+          ${node.subtitle ? `<div class="card-subtitle">${node.subtitle}</div>` : ''}
+          ${node.tags && node.tags.length ? `<div class="flex flex-wrap gap-1 mt-1">${node.tags.map(t => `<span class="card-badge">${t}</span>`).join('')}</div>` : ''}
+          <div class="card-actions">
+            <button onclick="addChildNode('${node.id}')" title="Alt dal ekle">➕</button>
+            <button onclick="addSiblingNode('${node.id}')" title="Kardeş ekle">🌿</button>
+            <button onclick="openModal('${node.id}')" title="Düzenle">✏️</button>
+          </div>
+          <div class="relation-dot" onclick="startRelationConnect('${node.id}')" title="Çapraz ilişki bağla"></div>
+        `;
+
+        // Sürükleme olayları
+        card.addEventListener('mousedown', (e) => {
+          if (e.target.closest('.card-actions') || e.target.closest('.relation-dot')) return;
+          startDragNode(e, node.id);
+        });
+
+        layer.appendChild(card);
+
+        // Alt düğümleri çiz
+        if (node.children) {
+          node.children.forEach(child => drawNode(child, tree, layer));
+        }
+      }
+
+      function getColorClass(color) {
+        const map = {
+          emerald: { border: '#10b981', bg: '#f0fdf4' },
+          blue: { border: '#3b82f6', bg: '#eff6ff' },
+          violet: { border: '#8b5cf6', bg: '#f5f3ff' },
+          amber: { border: '#f59e0b', bg: '#fffbeb' },
+          rose: { border: '#f43f5e', bg: '#fff1f2' },
+          indigo: { border: '#6366f1', bg: '#eef2ff' },
+          teal: { border: '#14b8a6', bg: '#f0fdfa' },
+          orange: { border: '#f97316', bg: '#fff7ed' },
+          slate: { border: '#94a3b8', bg: '#f8fafc' }
+        };
+        return map[color] || map.slate;
+      }
+
+      // ============================================================
+      // DÜĞÜM SÜRÜKLEME
+      // ============================================================
+      let dragData = null;
+
+      function startDragNode(e, nodeId) {
+        e.preventDefault();
+        const pos = nodePositions[nodeId];
+        if (!pos) return;
+        dragData = {
+          nodeId: nodeId,
+          offsetX: e.clientX - pos.x * zoom - panX,
+          offsetY: e.clientY - pos.y * zoom - panY
+        };
+        document.addEventListener('mousemove', onDragNode);
+        document.addEventListener('mouseup', endDragNode);
+      }
+
+      function onDragNode(e) {
+        if (!dragData) return;
+        const x = (e.clientX - panX - dragData.offsetX) / zoom;
+        const y = (e.clientY - panY - dragData.offsetY) / zoom;
+        nodePositions[dragData.nodeId] = { x, y };
+        renderCanvas();
+      }
+
+      function endDragNode() {
+        document.removeEventListener('mousemove', onDragNode);
+        document.removeEventListener('mouseup', endDragNode);
+        if (dragData) {
+          // Pozisyonları projeye kaydet (ağaç köklerine)
+          // Basitlik için tüm düğüm pozisyonlarını nodePositions'tan alıp ağaç root'larına yazalım.
+          // Ama daha iyisi, her ağacın rootNode için x,y saklayalım, alt düğümler için layout yeniden hesaplanır.
+          // Şimdilik sadece render'ı güncelle.
+          dragData = null;
+          saveProjectToFirebase();
+        }
+      }
+
+      // ============================================================
+      // PAN / ZOOM
+      // ============================================================
+      function handleZoom(step) {
+        zoom = Math.min(2.5, Math.max(0.3, zoom + step));
+        document.getElementById('zoom-text').textContent = Math.round(zoom * 100) + '%';
+        renderCanvas();
+      }
+
+      function handleZoomReset() {
+        panX = 40;
+        panY = 40;
+        zoom = 1.0;
+        document.getElementById('zoom-text').textContent = '100%';
+        renderCanvas();
+      }
+
+      // Canvas pan (mouse)
+      let isPanningCanvas = false;
+      let panStart = { x: 0, y: 0 };
+
+      document.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.node-card') || e.target.closest('.card-actions') || e.target.closest('.relation-dot')) return;
+        if (e.target.closest('#canvas-container')) {
+          isPanningCanvas = true;
+          panStart.x = e.clientX;
+          panStart.y = e.clientY;
+          document.addEventListener('mousemove', onCanvasPan);
+          document.addEventListener('mouseup', endCanvasPan);
+        }
+      });
+
+      function onCanvasPan(e) {
+        if (!isPanningCanvas) return;
+        const dx = e.clientX - panStart.x;
+        const dy = e.clientY - panStart.y;
+        panX += dx;
+        panY += dy;
+        panStart.x = e.clientX;
+        panStart.y = e.clientY;
+        renderCanvas();
+      }
+
+      function endCanvasPan() {
+        isPanningCanvas = false;
+        document.removeEventListener('mousemove', onCanvasPan);
+        document.removeEventListener('mouseup', endCanvasPan);
+      }
+
+      // ============================================================
+      // ARAMA
+      // ============================================================
+      function handleSearch(value) {
+        searchQuery = value.trim().toLowerCase();
+        searchResults = [];
+        currentSearchIndex = -1;
+        if (searchQuery.length === 0) {
+          document.getElementById('search-count-badge').classList.add('hidden');
+          document.getElementById('search-prev-btn').classList.add('hidden');
+          document.getElementById('search-next-btn').classList.add('hidden');
+          renderCanvas();
+          return;
+        }
+
+        // Tüm düğümleri tara
+        const allNodes = [];
+        const traverse = (node) => {
+          if (!node) return;
+          allNodes.push(node);
+          if (node.children) node.children.forEach(traverse);
+        };
+        project.trees.forEach(tree => traverse(tree.rootNode));
+
+        // Arama yap
+        searchResults = allNodes.filter(node => {
+          const title = node.title.toLowerCase();
+          const subtitle = node.subtitle ? node.subtitle.toLowerCase() : '';
+          const desc = node.description ? node.description.toLowerCase() : '';
+          const tags = node.tags ? node.tags.join(' ').toLowerCase() : '';
+          const fields = node.fields ? node.fields.map(f => f.key + ' ' + f.value).join(' ').toLowerCase() : '';
+          const combined = title + ' ' + subtitle + ' ' + desc + ' ' + tags + ' ' + fields;
+          return combined.includes(searchQuery);
+        });
+
+        if (searchResults.length > 0) {
+          currentSearchIndex = 0;
+          const badge = document.getElementById('search-count-badge');
+          badge.textContent = `${searchResults.length} sonuç`;
+          badge.classList.remove('hidden');
+          document.getElementById('search-prev-btn').classList.remove('hidden');
+          document.getElementById('search-next-btn').classList.remove('hidden');
+          highlightSearchResults();
+          focusNode(searchResults[0].id);
+        } else {
+          document.getElementById('search-count-badge').classList.add('hidden');
+          document.getElementById('search-prev-btn').classList.add('hidden');
+          document.getElementById('search-next-btn').classList.add('hidden');
+          renderCanvas();
+        }
+      }
+
+      function navigateSearchResult(direction) {
+        if (searchResults.length === 0) return;
+        currentSearchIndex = (currentSearchIndex + direction + searchResults.length) % searchResults.length;
+        const node = searchResults[currentSearchIndex];
+        focusNode(node.id);
+        highlightSearchResults();
+      }
+
+      function focusNode(nodeId) {
+        const pos = nodePositions[nodeId];
+        if (!pos) return;
+        // Tuvali odağa al (pan'ı ayarla)
+        const container = document.getElementById('canvas-container');
+        const rect = container.getBoundingClientRect();
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        panX = centerX - pos.x * zoom;
+        panY = centerY - pos.y * zoom;
+        renderCanvas();
+      }
+
+      function highlightSearchResults() {
+        // Kartları vurgula
+        document.querySelectorAll('.node-card').forEach(card => {
+          card.style.outline = 'none';
+          card.style.boxShadow = '';
+        });
+        searchResults.forEach((node, idx) => {
+          const card = document.querySelector(`.node-card[data-node-id="${node.id}"]`);
+          if (card) {
+            if (idx === currentSearchIndex) {
+              card.style.outline = '3px solid #f59e0b';
+              card.style.boxShadow = '0 0 20px rgba(245,158,11,0.4)';
+            } else {
+              card.style.outline = '1px solid #f59e0b';
+            }
+          }
+        });
+      }
+
+      // ============================================================
+      // DÜĞÜM EKLEME / SİLME / DÜZENLEME
+      // ============================================================
+      function addChildNode(parentId) {
+        const newNode = createDefaultNode();
+        const parentNode = findNodeById(parentId);
+        if (!parentNode) return;
+        if (!parentNode.children) parentNode.children = [];
+        parentNode.children.push(newNode);
+        // Pozisyonları yeniden hesapla
+        computeNodePositions();
+        saveProjectToFirebase();
+        renderCanvas();
+      }
+
+      function addSiblingNode(nodeId) {
+        const node = findNodeById(nodeId);
+        if (!node) return;
+        // Ebeveyni bul
+        const parent = findParentNode(nodeId);
+        if (!parent) {
+          // Kök düğüm ise yeni ağaç ekle
+          addNewTree();
+          return;
+        }
+        const sibling = createDefaultNode();
+        if (!parent.children) parent.children = [];
+        const idx = parent.children.indexOf(node);
+        parent.children.splice(idx + 1, 0, sibling);
+        computeNodePositions();
+        saveProjectToFirebase();
+        renderCanvas();
+      }
+
+      function createDefaultNode() {
+        return {
+          id: 'node-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
+          title: 'Yeni Düğüm',
+          subtitle: '',
+          description: '',
+          icon: 'box',
+          color: 'emerald',
+          collapsed: false,
+          fields: [],
+          tags: [],
+          children: []
+        };
+      }
+
+      function deleteCurrentModalNode() {
+        if (!editingNodeId) return;
+        if (!confirm('Bu düğümü ve tüm alt dallarını silmek istediğinize emin misiniz?')) return;
+        const node = findNodeById(editingNodeId);
+        if (!node) return;
+        const parent = findParentNode(editingNodeId);
+        if (parent) {
+          parent.children = parent.children.filter(c => c.id !== editingNodeId);
+        } else {
+          // Kök düğüm ise, ağacı sil
+          const treeIndex = project.trees.findIndex(t => t.rootNode.id === editingNodeId);
+          if (treeIndex > -1) {
+            project.trees.splice(treeIndex, 1);
+          }
+        }
+        closeModal();
+        computeNodePositions();
+        saveProjectToFirebase();
+        renderCanvas();
+      }
+
+      function openModal(nodeId) {
+        const node = findNodeById(nodeId);
+        if (!node) return;
+        editingNodeId = nodeId;
+        document.getElementById('edit-node-title').value = node.title || '';
+        document.getElementById('edit-node-subtitle').value = node.subtitle || '';
+        document.getElementById('edit-node-description').value = node.description || '';
+        document.getElementById('edit-node-icon').value = node.icon || 'box';
+        document.getElementById('edit-node-color').value = node.color || 'emerald';
+        document.getElementById('edit-node-tags').value = node.tags ? node.tags.join(', ') : '';
+        // Alanlar
+        const fieldsContainer = document.getElementById('modal-fields-container');
+        fieldsContainer.innerHTML = '';
+        if (node.fields) {
+          node.fields.forEach(f => {
+            addModalFieldRow(f.id, f.key, f.value);
+          });
+        }
+        // İlişkileri göster
+        renderNodeRelations(nodeId);
+
+        // Başlık
+        document.getElementById('modal-header-title').textContent = 'Düğümü Düzenle';
+        const treeName = findTreeNameByNodeId(nodeId);
+        document.getElementById('modal-header-tree-name').textContent = treeName ? `Ağaç: ${treeName}` : '';
+
+        document.getElementById('node-modal').classList.remove('hidden');
+      }
+
+      function closeModal() {
+        document.getElementById('node-modal').classList.add('hidden');
+        editingNodeId = null;
+      }
+
+      function saveModalChanges() {
+        if (!editingNodeId) return;
+        const node = findNodeById(editingNodeId);
+        if (!node) return;
+        node.title = document.getElementById('edit-node-title').value.trim() || 'İsimsiz';
+        node.subtitle = document.getElementById('edit-node-subtitle').value.trim();
+        node.description = document.getElementById('edit-node-description').value.trim();
+        node.icon = document.getElementById('edit-node-icon').value;
+        node.color = document.getElementById('edit-node-color').value;
+        const tags = document.getElementById('edit-node-tags').value.split(',').map(s => s.trim()).filter(s => s);
+        node.tags = tags;
+
+        // Alanlar
+        const fieldRows = document.querySelectorAll('#modal-fields-container .modal-field-row');
+        const fields = [];
+        fieldRows.forEach(row => {
+          const keyInput = row.querySelector('.field-key');
+          const valInput = row.querySelector('.field-value');
+          if (keyInput && valInput) {
+            const key = keyInput.value.trim();
+            const val = valInput.value.trim();
+            if (key) {
+              fields.push({ id: 'f' + Date.now() + '-' + Math.random().toString(36).substr(2,4), key, value: val, type: 'text' });
+            }
+          }
+        });
+        node.fields = fields;
+
+        closeModal();
+        computeNodePositions();
+        saveProjectToFirebase();
+        renderCanvas();
+      }
+
+      function addModalFieldRow(id, key, value) {
+        const container = document.getElementById('modal-fields-container');
+        const row = document.createElement('div');
+        row.className = 'modal-field-row flex gap-2 items-center';
+        const uid = id || 'f' + Date.now() + '-' + Math.random().toString(36).substr(2,4);
+        row.innerHTML = `
+          <input type="text" class="field-key flex-1 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs" placeholder="Alan adı" value="${key || ''}" />
+          <input type="text" class="field-value flex-1 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs" placeholder="Değer" value="${value || ''}" />
+          <button onclick="removeModalFieldRow(this)" class="text-rose-400 hover:text-rose-600 text-xs font-bold">✕</button>
+        `;
+        container.appendChild(row);
+      }
+
+      function removeModalFieldRow(btn) {
+        btn.closest('.modal-field-row').remove();
+      }
+
+      function findNodeById(id) {
+        let found = null;
+        const traverse = (node) => {
+          if (!node) return;
+          if (node.id === id) { found = node; return; }
+          if (node.children) node.children.forEach(traverse);
+        };
+        project.trees.forEach(tree => traverse(tree.rootNode));
+        return found;
+      }
+
+      function findParentNode(id) {
+        let parent = null;
+        const traverse = (node, p) => {
+          if (!node) return;
+          if (node.id === id) { parent = p; return; }
+          if (node.children) {
+            node.children.forEach(child => traverse(child, node));
+          }
+        };
+        project.trees.forEach(tree => traverse(tree.rootNode, null));
+        return parent;
+      }
+
+      function findTreeNameByNodeId(id) {
+        for (const tree of project.trees) {
+          if (tree.rootNode.id === id) return tree.name;
+          // alt düğümlerde arama yapmaya gerek yok, sadece kök
+        }
+        return null;
+      }
+
+      // ============================================================
+      // AĞAÇ YÖNETİMİ
+      // ============================================================
+      function addNewTree() {
+        const newTree = {
+          id: 'tree-' + Date.now(),
+          name: 'Yeni Ağaç',
+          x: 200 + Math.random() * 200,
+          y: 200 + Math.random() * 200,
+          rootNode: createDefaultRootNode()
+        };
+        project.trees.push(newTree);
+        computeNodePositions();
+        saveProjectToFirebase();
+        renderCanvas();
+      }
+
+      function deleteTree(treeId) {
+        if (!confirm('Bu ağacı silmek istediğinize emin misiniz?')) return;
+        project.trees = project.trees.filter(t => t.id !== treeId);
+        computeNodePositions();
+        saveProjectToFirebase();
+        renderCanvas();
+      }
+
+      function editTreeName(treeId) {
+        const tree = project.trees.find(t => t.id === treeId);
+        if (!tree) return;
+        const newName = prompt('Ağaç adını girin:', tree.name);
+        if (newName !== null && newName.trim()) {
+          tree.name = newName.trim();
+          saveProjectToFirebase();
+          renderCanvas();
+        }
+      }
+
+      // ============================================================
+      // ÇAPRAZ İLİŞKİ YÖNETİMİ
+      // ============================================================
+      function openRelationModal() {
+        document.getElementById('rel-edit-id').value = '';
+        document.getElementById('rel-label-input').value = '';
+        document.getElementById('rel-style-select').value = 'solid';
+        selectedRelColor = '#8b5cf6';
+        populateRelationColorPicker();
+        populateNodeSelects();
+        renderRelationList();
+        document.getElementById('rel-btn-delete').classList.add('hidden');
+        document.getElementById('relation-modal').classList.remove('hidden');
+      }
+
+      function closeRelationModal() {
+        document.getElementById('relation-modal').classList.add('hidden');
+      }
+
+      function saveRelationModal() {
+        const sourceId = document.getElementById('rel-source-select').value;
+        const targetId = document.getElementById('rel-target-select').value;
+        const label = document.getElementById('rel-label-input').value.trim();
+        const style = document.getElementById('rel-style-select').value;
+        const color = selectedRelColor;
+
+        if (!sourceId || !targetId) {
+          alert('Lütfen kaynak ve hedef düğüm seçin.');
+          return;
+        }
+        if (sourceId === targetId) {
+          alert('Kaynak ve hedef aynı olamaz.');
+          return;
+        }
+
+        const editId = document.getElementById('rel-edit-id').value;
+        if (editId) {
+          // Var olanı güncelle
+          const rel = project.relations.find(r => r.id === editId);
+          if (rel) {
+            rel.sourceNodeId = sourceId;
+            rel.targetNodeId = targetId;
+            rel.label = label;
+            rel.style = style;
+            rel.color = color;
+          }
+        } else {
+          // Yeni ilişki
+          const newRel = {
+            id: 'rel-' + Date.now() + '-' + Math.random().toString(36).substr(2,6),
+            sourceNodeId: sourceId,
+            targetNodeId: targetId,
+            label: label,
+            type: 'flow',
+            color: color,
+            style: style
+          };
+          project.relations.push(newRel);
+        }
+        closeRelationModal();
+        saveProjectToFirebase();
+        renderCanvas();
+        updateStats();
+      }
+
+      function deleteCurrentEditingRelation() {
+        const editId = document.getElementById('rel-edit-id').value;
+        if (!editId) return;
+        if (!confirm('Bu ilişkiyi silmek istediğinize emin misiniz?')) return;
+        project.relations = project.relations.filter(r => r.id !== editId);
+        closeRelationModal();
+        saveProjectToFirebase();
+        renderCanvas();
+        updateStats();
+      }
+
+      function renderRelationList() {
+        const list = document.getElementById('rel-modal-list');
+        const count = document.getElementById('rel-modal-list-count');
+        if (!project.relations) project.relations = [];
+        count.textContent = project.relations.length;
+        if (project.relations.length === 0) {
+          list.innerHTML = '<p class="text-slate-400 text-xs">Henüz ilişki yok.</p>';
+          return;
+        }
+        let html = '';
+        project.relations.forEach(rel => {
+          const srcNode = findNodeById(rel.sourceNodeId);
+          const tgtNode = findNodeById(rel.targetNodeId);
+          const srcName = srcNode ? srcNode.title : '?';
+          const tgtName = tgtNode ? tgtNode.title : '?';
+          html += `<div class="flex items-center justify-between bg-slate-50 p-2 rounded-lg border border-slate-200 text-xs">
+            <div class="flex items-center gap-2">
+              <span class="font-bold">${srcName}</span>
+              <span class="text-slate-400">→</span>
+              <span class="font-bold">${tgtName}</span>
+              ${rel.label ? `<span class="bg-violet-100 text-violet-700 px-1.5 py-0.2 rounded-full text-[10px]">${rel.label}</span>` : ''}
+            </div>
+            <button onclick="editRelation('${rel.id}')" class="text-violet-600 hover:text-violet-800 font-bold">✏️</button>
+          </div>`;
+        });
+        list.innerHTML = html;
+      }
+
+      function editRelation(relId) {
+        const rel = project.relations.find(r => r.id === relId);
+        if (!rel) return;
+        document.getElementById('rel-edit-id').value = relId;
+        document.getElementById('rel-source-select').value = rel.sourceNodeId;
+        document.getElementById('rel-target-select').value = rel.targetNodeId;
+        document.getElementById('rel-label-input').value = rel.label || '';
+        document.getElementById('rel-style-select').value = rel.style || 'solid';
+        selectedRelColor = rel.color || '#8b5cf6';
+        populateRelationColorPicker();
+        document.getElementById('rel-btn-delete').classList.remove('hidden');
+        renderRelationList();
+      }
+
+      function populateNodeSelects() {
+        const sourceSelect = document.getElementById('rel-source-select');
+        const targetSelect = document.getElementById('rel-target-select');
+        sourceSelect.innerHTML = '';
+        targetSelect.innerHTML = '';
+        const allNodes = [];
+        const traverse = (node) => {
+          if (!node) return;
+          allNodes.push(node);
+          if (node.children) node.children.forEach(traverse);
+        };
+        project.trees.forEach(tree => traverse(tree.rootNode));
+        allNodes.forEach(node => {
+          const opt1 = document.createElement('option');
+          opt1.value = node.id;
+          opt1.textContent = node.title + ' (' + node.id + ')';
+          sourceSelect.appendChild(opt1);
+          const opt2 = document.createElement('option');
+          opt2.value = node.id;
+          opt2.textContent = node.title + ' (' + node.id + ')';
+          targetSelect.appendChild(opt2);
+        });
+      }
+
+      function populateRelationColorPicker() {
+        const container = document.getElementById('rel-color-picker-container');
+        const colors = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#f43f5e', '#6366f1', '#14b8a6', '#f97316', '#64748b'];
+        container.innerHTML = '';
+        colors.forEach(c => {
+          const btn = document.createElement('button');
+          btn.className = 'w-6 h-6 rounded-full border-2 border-white shadow-sm';
+          btn.style.background = c;
+          if (c === selectedRelColor) {
+            btn.style.outline = '2px solid #1e293b';
+            btn.style.outlineOffset = '2px';
+          }
+          btn.onclick = () => {
+            selectedRelColor = c;
+            populateRelationColorPicker();
+          };
+          container.appendChild(btn);
+        });
+      }
+
+      // ============================================================
+      // TUVALDEN İLİŞKİ BAĞLAMA (mor nokta)
+      // ============================================================
+      function startRelationConnect(sourceId) {
+        const sourceNode = findNodeById(sourceId);
+        if (!sourceNode) return;
+        relationConnectingSourceId = sourceId;
+        document.getElementById('rel-conn-source-name').textContent = sourceNode.title;
+        document.getElementById('relation-connecting-bar').classList.remove('hidden');
+        // Hedef düğümlere tıklama dinleyicisi ekle
+        document.querySelectorAll('.node-card').forEach(card => {
+          card.style.cursor = 'pointer';
+          card.addEventListener('click', onRelationTargetClick);
+        });
+      }
+
+      function onRelationTargetClick(e) {
+        const card = e.target.closest('.node-card');
+        if (!card) return;
+        const targetId = card.dataset.nodeId;
+        if (targetId === relationConnectingSourceId) {
+          alert('Kendine ilişki bağlanamaz.');
+          return;
+        }
+        // İlişkiyi oluştur
+        const newRel = {
+          id: 'rel-' + Date.now() + '-' + Math.random().toString(36).substr(2,6),
+          sourceNodeId: relationConnectingSourceId,
+          targetNodeId: targetId,
+          label: '',
+          type: 'flow',
+          color: '#8b5cf6',
+          style: 'solid'
+        };
+        project.relations.push(newRel);
+        cancelRelationConnect();
+        saveProjectToFirebase();
+        renderCanvas();
+        updateStats();
+      }
+
+      function cancelRelationConnect() {
+        relationConnectingSourceId = null;
+        document.getElementById('relation-connecting-bar').classList.add('hidden');
+        document.querySelectorAll('.node-card').forEach(card => {
+          card.style.cursor = 'default';
+          card.removeEventListener('click', onRelationTargetClick);
+        });
+      }
+
+      // ESC tuşu ile iptal
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          if (relationConnectingSourceId) cancelRelationConnect();
+          closeModal();
+          closeRelationModal();
+        }
+      });
+
+      // Modal içinden ilişki başlat
+      function startRelationFromCurrentModalNode() {
+        if (!editingNodeId) return;
+        closeModal();
+        setTimeout(() => {
+          startRelationConnect(editingNodeId);
+        }, 200);
       }
 
       // ============================================================
       // KARANLIK MOD
       // ============================================================
-      window.toggleDarkMode = function() {
-        darkMode = !darkMode;
-        document.body.style.background = darkMode ? '#0f172a' : '#f1f5f9';
-        document.body.style.color = darkMode ? '#e2e8f0' : '#0f172a';
-        document.getElementById('header').style.background = darkMode ? '#1e293b' : 'white';
-        document.getElementById('header').style.borderColor = darkMode ? '#334155' : '#e2e8f0';
-        document.getElementById('canvas-container').style.backgroundImage = darkMode ? 'radial-gradient(#334155 1px, transparent 1px)' : 'radial-gradient(#cbd5e1 1px, transparent 1px)';
-        localStorage.setItem('theme-preference', darkMode ? 'dark' : 'light');
-        const btn = document.querySelector('.btn-dark');
-        btn.textContent = darkMode ? '☀️ Açık Mod' : '🌙 Koyu Mod';
-        render();
-      };
-
-      // ============================================================
-      // ZOOM (Fare tekerleği)
-      // ============================================================
-      container.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        const delta = e.deltaY < 0 ? 1.1 : 0.9;
-        zoom = Math.max(0.3, Math.min(2.0, zoom * delta));
-        render();
-      }, { passive: false });
-
-      // ============================================================
-      // GİRİŞ KONTROLÜ (Firebase + Local)
-      // ============================================================
-      function askForCode() {
-        const code = prompt('Lütfen 6 haneli güvenlik kodunu girin:');
-        if (code === null) return askForCode();
-        if (code.length !== 6 || !/^\d+$/.test(code)) {
-          alert('Kod 6 haneli sayısal olmalıdır.');
-          return askForCode();
-        }
-        return code;
+      function toggleDarkMode() {
+        isDarkMode = !isDarkMode;
+        document.body.classList.toggle('dark-mode', isDarkMode);
+        document.getElementById('theme-icon').textContent = isDarkMode ? '☀️' : '🌙';
+        document.getElementById('theme-text').textContent = isDarkMode ? 'Aydınlık Mod' : 'Koyu Mod';
+        renderCanvas();
       }
 
-      function authenticate() {
-        if (sessionStorage.getItem('authenticated') === 'true') {
-          startApp();
-          return;
-        }
+      // ============================================================
+      // JSON İNDİR
+      // ============================================================
+      function downloadJSON() {
+        if (!project) return;
+        const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'proje-verisi.json';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
 
-        accessCodeRef.once('value').then((snapshot) => {
-          const storedCode = snapshot.val() || '300389';
-          let userCode = askForCode();
-          while (userCode !== storedCode) {
-            alert('❌ Geçersiz kod! Lütfen tekrar deneyin.');
-            userCode = askForCode();
-          }
-          sessionStorage.setItem('authenticated', 'true');
-          startApp();
-        }).catch((err) => {
-          console.warn('Firebase kod okuma hatası, varsayılan kod kullanılıyor:', err);
-          const storedCode = '300389';
-          let userCode = askForCode();
-          while (userCode !== storedCode) {
-            alert('❌ Geçersiz kod! Lütfen tekrar deneyin.');
-            userCode = askForCode();
-          }
-          sessionStorage.setItem('authenticated', 'true');
-          startApp();
-        });
+      // ============================================================
+      // TUVAL BOYUTU
+      // ============================================================
+      function setCanvasSize() {
+        const newWidth = prompt('Tuval genişliği (px):', String(canvasWidth));
+        const newHeight = prompt('Tuval yüksekliği (px):', String(canvasHeight));
+        if (newWidth && newHeight) {
+          canvasWidth = parseInt(newWidth);
+          canvasHeight = parseInt(newHeight);
+          document.getElementById('canvas-stage').style.width = canvasWidth + 'px';
+          document.getElementById('canvas-stage').style.height = canvasHeight + 'px';
+          renderCanvas();
+        }
       }
 
       // ============================================================
       // BAŞLAT
       // ============================================================
-      function startApp() {
-        // Karanlık modu uygula
-        if (darkMode) {
-          document.body.style.background = '#0f172a';
-          document.body.style.color = '#e2e8f0';
-          document.getElementById('header').style.background = '#1e293b';
-          document.getElementById('header').style.borderColor = '#334155';
-          document.getElementById('canvas-container').style.backgroundImage = 'radial-gradient(#334155 1px, transparent 1px)';
-          document.querySelector('.btn-dark').textContent = '☀️ Açık Mod';
-        }
+      loadDataFromFirebase();
+      startRealtimeListener();
 
-        // Veriyi yükle
-        loadProject();
-      }
+      // Canvas boyutunu ayarla
+      document.getElementById('canvas-stage').style.width = canvasWidth + 'px';
+      document.getElementById('canvas-stage').style.height = canvasHeight + 'px';
 
-      // Başlat
-      authenticate();
+      // Başlangıçta canvas görünümü
+      setViewMode('canvas');
 
+      // Global olarak fonksiyonları tanımla (HTML onclick için)
+      window.renderCanvas = renderCanvas;
+      window.setViewMode = setViewMode;
+      window.handleSearch = handleSearch;
+      window.navigateSearchResult = navigateSearchResult;
+      window.handleZoom = handleZoom;
+      window.handleZoomReset = handleZoomReset;
+      window.toggleDarkMode = toggleDarkMode;
+      window.downloadJSON = downloadJSON;
+      window.setCanvasSize = setCanvasSize;
+      window.addNewTree = addNewTree;
+      window.deleteTree = deleteTree;
+      window.editTreeName = editTreeName;
+      window.openModal = openModal;
+      window.closeModal = closeModal;
+      window.saveModalChanges = saveModalChanges;
+      window.deleteCurrentModalNode = deleteCurrentModalNode;
+      window.addModalFieldRow = addModalFieldRow;
+      window.removeModalFieldRow = removeModalFieldRow;
+      window.addChildNode = addChildNode;
+      window.addSiblingNode = addSiblingNode;
+      window.openRelationModal = openRelationModal;
+      window.closeRelationModal = closeRelationModal;
+      window.saveRelationModal = saveRelationModal;
+      window.deleteCurrentEditingRelation = deleteCurrentEditingRelation;
+      window.editRelation = editRelation;
+      window.startRelationConnect = startRelationConnect;
+      window.cancelRelationConnect = cancelRelationConnect;
+      window.startRelationFromCurrentModalNode = startRelationFromCurrentModalNode;
+
+      console.log('✅ Uygulama başarıyla başlatıldı!');
     })();
   </script>
 </body>
