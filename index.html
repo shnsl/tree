@@ -3,7 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#059669" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="description" content="Varlık ve süreç yönetim haritası" />
   <title>Varlık ve Süreç Yönetim Haritası - İnteraktif Hiyerarşik Ağaç Editörü</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -259,7 +266,7 @@
     <form onsubmit="handleLogin(event)" class="w-full max-w-sm bg-white rounded-2xl border border-slate-200 shadow-2xl p-7 text-center">
       <div class="mx-auto mb-4 w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-2xl shadow-sm">🌿</div>
       <h2 class="text-lg font-bold text-slate-900">Varlık ve Süreç Yönetim Haritası</h2>
-      <p class="mt-1 mb-6 text-xs text-slate-500">💚</p>
+      <p class="mt-1 mb-6 text-xs text-slate-500">Devam etmek için erişim şifresini girin.</p>
       <input id="access-code-input" type="password" autocomplete="off" required class="w-full text-center text-lg font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="Erişim şifresi" />
       <button id="login-button" type="submit" class="mt-4 w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white py-3 text-sm font-bold transition">Giriş Yap</button>
       <p id="login-status" class="min-h-5 mt-3 text-xs text-rose-600" role="alert"></p>
@@ -1305,6 +1312,14 @@
         } catch (e) {
           console.error(e);
         }
+      }
+
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('./service-worker.js').catch(function(error) {
+            console.warn('Service worker kaydı başarısız:', error);
+          });
+        });
       }
 
       function listenForFirebaseProject() {
