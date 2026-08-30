@@ -1392,9 +1392,13 @@
 
       // Giris ekranindaki "Guncelle ve Yeniden Baslat" butonu
       window.applyUpdate = function() {
+        // Bekleyen yeni surum varsa aktiflestirmesi icin mesaj gonder
         const reg = window.__swRegistration;
-        if (reg && reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-        else window.location.reload();
+        if (reg && reg.waiting) {
+          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+        // controllerchange gelmese bile kesin yenile, banner/resim simdi guncel olsun
+        setTimeout(function() { window.location.reload(); }, 300);
       };
 
       if ('serviceWorker' in navigator) {
