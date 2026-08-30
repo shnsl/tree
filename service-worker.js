@@ -42,15 +42,32 @@ self.addEventListener('message', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
+  // Ana sayfa (HTML) navigasyonlari icin: once ag -> kullanicilar her zaman
+  // en guncel surumu gorur, mobil cache sorunu yasanmaz.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          const clone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          return networkResponse;
+        })
+        .catch(() =>
+          caches.match(event.request).then((c) => c || caches.match('./index.html'))
+        )
+    );
+    return;
+  }
+
+  // Diger statik dosyalar (ikon, manifest vb.): once cache, olmazsa ag.
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
         return cachedResponse;
       }
-
       return fetch(event.request)
         .then((networkResponse) => {
-          if (event.request.url.startsWith('http') && networkResponse && networkResponse.status === 200) {
+          if (networkResponse && networkResponse.status === 200) {
             const responseClone = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
           }
