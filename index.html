@@ -1212,12 +1212,11 @@
       }
 
       function getNodePath(item) {
-        const parts = [];
-        let current = item;
+        const parts = [item.node.title];
+        let current = findNodeInTree(project.trees, item.node.id);
         let guard = 0;
-        while (current && guard < 100) {
-          parts.unshift(current.node.title);
-          if (!current.parent) break;
+        while (current && current.parent && guard < 100) {
+          parts.unshift(current.parent.title);
           current = findNodeInTree(project.trees, current.parent.id);
           guard++;
         }
