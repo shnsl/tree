@@ -1211,6 +1211,19 @@
         return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
       }
 
+      function getNodePath(item) {
+        const parts = [];
+        let current = item;
+        let guard = 0;
+        while (current && guard < 100) {
+          parts.unshift(current.node.title);
+          if (!current.parent) break;
+          current = findNodeInTree(project.trees, current.parent.id);
+          guard++;
+        }
+        return parts;
+      }
+
       function getDateNotifications() {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -1229,7 +1242,7 @@
               treeName: item.treeName,
               fieldKey: field.key,
               fieldValue: field.value,
-              daysRemaining
+              daysRemaining, path: getNodePath(item)
             });
           });
         });
@@ -1264,6 +1277,7 @@
               <span class="shrink-0 px-2 py-1 rounded-lg border text-[10px] font-bold ${status.color}">${status.text}</span>
               <div class="min-w-0 flex-1">
                 <div class="text-xs font-bold text-slate-800 truncate">${escapeHtml(notification.nodeTitle)}</div>
+                <div class="text-[11px] font-semibold text-emerald-700 mt-0.5 truncate">${notification.path && notification.path.length > 1 ? '\u{1F4C1} ' + notification.path.join('  ') : ''}</div>
                 <div class="text-[11px] text-slate-500 truncate">${escapeHtml(notification.fieldKey)}: ${escapeHtml(notification.fieldValue)} · ${escapeHtml(notification.treeName)}</div>
               </div>
               <button type="button" onclick="openNotificationNode('${notification.nodeId}')" class="p-1.5 rounded-lg text-slate-600 hover:bg-white hover:text-rose-700" title="Kartı düzenle">✏️</button>
