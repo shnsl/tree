@@ -1,7 +1,4 @@
-// İsim/terek değişikliğinde bu sürümü artırın (ör. 'v1' -> 'v2').
-// Böylece cache otomatik yenilenir ve kullanıcıya güncelleme bildirilir.
-const APP_VERSION = 'v1';
-const CACHE_NAME = 'agac-pwa-' + APP_VERSION;
+const CACHE_NAME = 'agac-pwa-v2';
 const APP_SHELL = [
   './',
   './index.html',
@@ -26,16 +23,8 @@ self.addEventListener('activate', (event) => {
           .filter((key) => key !== CACHE_NAME)
           .map((key) => caches.delete(key))
       )
-        ).then(() => self.clients.claim())
+    ).then(() => self.clients.claim())
   );
-});
-
-// Kullanıcının "Güncelle" butonuna tıklamasıyla gelen istek:
-// beklemede olan yeni sürümü hemen aktif hale getirir.
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
 });
 
 self.addEventListener('fetch', (event) => {
