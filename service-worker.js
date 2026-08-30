@@ -1,4 +1,4 @@
-const CACHE_NAME = 'agac-pwa-v1';
+const CACHE_NAME = 'agac-pwa-v2';
 const APP_SHELL = [
   './',
   './index.html',
