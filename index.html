@@ -10,7 +10,41 @@
   <meta name="description" content="Varlık ve süreç yönetim haritası" />
   <title>Varlık ve Süreç Yönetim Haritası - İnteraktif Hiyerarşik Ağaç Editörü</title>
   <link rel="icon" type="image/png" href="./icons/icon-192.png" />
-  <link rel="manifest" href="./manifest.webmanifest" />
+  <script src="./app-config.js"></script>
+  <link rel="manifest" id="dynamic-manifest" href="./manifest.webmanifest" />
+  <script>
+    // Manifest'i tek ayar dosyasindan (app-config.js) dinamik uret.
+    (function() {
+      try {
+        var cfg = window.PWA_CONFIG || { SHORT_NAME: 'ARSH', VERSION: '1', NAME: 'Varlık ve Süreç Yönetim Haritası' };
+        var icons = [
+          { src: './icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: './icons/icon-maskable-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+          { src: './icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: './icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+        ];
+        var manifest = {
+          name: cfg.NAME,
+          short_name: cfg.SHORT_NAME,
+          description: cfg.NAME + ' - Interaktif hiyerarsik agac editörü',
+          lang: 'tr-TR',
+          id: './',
+          start_url: './',
+          scope: './',
+          display: 'standalone',
+          background_color: '#0f766e',
+          theme_color: '#059669',
+          orientation: 'portrait',
+          icons: icons
+        };
+        var link = document.getElementById('dynamic-manifest');
+        if (link) {
+          link.href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' }));
+          document.title = cfg.NAME + ' - İnteraktif Hiyerarşik Ağaç Editörü';
+        }
+      } catch (e) {}
+    })();
+  </script>
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -1331,7 +1365,7 @@
       // ---- PWA Surum & Otomatik Guncelleme ----
       // NOT: Bu deger, service-worker.js icindeki APP_VERSION ile AYNI olmalidir.
       // Her isim/icerik degisikliginde ikisini birlikte artirin (or. v1 -> v2).
-      const APP_VERSION = 'v1';
+      const APP_VERSION = (window.PWA_CONFIG && window.PWA_CONFIG.VERSION) ? window.PWA_CONFIG.VERSION : '1';
 
       function renderVersionText() {
         const el = document.getElementById('app-version-text');

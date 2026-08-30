@@ -1,7 +1,7 @@
-// Her isim/icerik degisikliginde APP_VERSION'i artirin (or. v1 -> v2).
-// Bu, cache'i otomatik yeniler ve guncelleme bildirimi tetikler.
-const APP_VERSION = 'v1';
-const CACHE_NAME = 'agac-pwa-' + APP_VERSION;
+// Tek ayar dosyasi (app-config.js) cache adini ve surumu belirler.
+importScripts('./app-config.js');
+const APP_VERSION = self.PWA_CONFIG.VERSION;
+const CACHE_NAME = self.PWA_CACHE_VERSION;
 const APP_SHELL = [
   './',
   './index.html',
