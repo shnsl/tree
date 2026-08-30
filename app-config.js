@@ -14,8 +14,8 @@
 // `self`, hem tarayıcı penceresinde (window) hem de Service Worker'da
 // global nesneyi temsil eder; böylece tek dosya her iki ortamda da çalışır.
 self.PWA_CONFIG = {
-  SHORT_NAME: 'ARSH',
-  VERSION: '1',
+  SHORT_NAME: 'ARSHH',
+  VERSION: '2',
   NAME: 'Varlık ve Süreç Yönetim Haritası'
 };
 
