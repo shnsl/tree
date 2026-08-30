@@ -1,4 +1,4 @@
-// Build v3 - basit PWA servisi
+// Build v4 - html/config network-first
 
 // Tek ayar dosyasi (app-config.js) cache adini ve surumu belirler.
 importScripts('./app-config.js');
@@ -35,9 +35,15 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
-  // Ana sayfa (HTML) navigasyonlari icin: once ag -> kullanicilar her zaman
-  // en guncel surumu gorur, mobil cache sorunu yasanmaz.
-  if (event.request.mode === 'navigate') {
+  const url = event.request.url;
+  const isHtmlRequest =
+    event.request.mode === 'navigate' ||
+    url.includes('app-config.js') ||
+    url.includes('index.html') ||
+    url.endsWith('/');
+
+  // HTML / yapilandirma dosyalari icin: once ag -> her zaman en guncel icerik.
+  if (isHtmlRequest) {
     event.respondWith(
       fetch(event.request)
         .then((networkResponse) => {
