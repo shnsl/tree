@@ -1,4 +1,7 @@
-const CACHE_NAME = 'agac-pwa-v2';
+// Her isim/icerik degisikliginde APP_VERSION'i artirin (or. v1 -> v2).
+// Bu, cache'i otomatik yeniler ve guncelleme bildirimi tetikler.
+const APP_VERSION = 'v1';
+const CACHE_NAME = 'agac-pwa-' + APP_VERSION;
 const APP_SHELL = [
   './',
   './index.html',
@@ -25,6 +28,13 @@ self.addEventListener('activate', (event) => {
       )
     ).then(() => self.clients.claim())
   );
+});
+
+// Kullanicinin "Guncelle" butonuna tiklayinca beklemede olan yeni surumu aktiflestirir.
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('fetch', (event) => {
