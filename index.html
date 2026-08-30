@@ -1369,20 +1369,21 @@
       // Her isim/icerik degisikliginde ikisini birlikte artirin (or. v1 -> v2).
       const APP_VERSION = (window.PWA_CONFIG && window.PWA_CONFIG.VERSION) ? window.PWA_CONFIG.VERSION : '1';
 
-      function renderVersionText() {
+            function renderVersionText() {
         const el = document.getElementById('app-version-text');
-        if (el) el.textContent = 'v' + APP_VERSION + ' / Guncellendi' ;
+        if (el) el.textContent = 'v' + APP_VERSION + ' / Guncellendi';
       }
 
-                navigator.serviceWorker.register('./service-worker.js').then(function() {
-            renderVersionText();
-          }).catch(function(error) {}).catch(function(error) {
-            console.warn('Service worker kaydı başarısız:', error);
-          });
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('./service-worker.js')
+            .then(function() { renderVersionText(); })
+            .catch(function(error) {
+              console.warn('Service worker kaydi basarisiz:', error);
+            });
         });
       }
-
-      function listenForFirebaseProject() {
+function listenForFirebaseProject() {
         if (!firebaseDatabase) return;
         firebaseDatabase.ref(FIREBASE_PATH).on('value', (snapshot) => {
           const remoteProject = snapshot.val();
