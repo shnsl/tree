@@ -303,17 +303,6 @@
       <h2 class="text-lg font-bold text-slate-900">Varlık ve Süreç Yönetim Haritası</h2>
       <p class="mt-1 mb-6 text-xs text-slate-500">Devam etmek için erişim şifresini girin.</p>
 
-      <!-- Uygulama Güncelleme Bildirimi (yeni sürüm algılanınca görünür) -->
-      <div id="update-banner" class="hidden mb-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-left">
-        <div class="flex items-start gap-2">
-          <span class="text-lg shrink-0">&#128260;</span>
-          <div class="min-w-0 flex-1">
-            <div class="text-xs font-bold text-amber-900">Uygulamanın yeni bir sürümü hazır</div>
-            <div class="text-[11px] text-amber-800 mt-0.5">Güncellemek için aşağıdaki butona dokunun.</div>
-            <button id="update-now-btn" type="button" onclick="applyUpdate()" class="mt-2 w-full rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold py-2 transition">Güncelle ve Yeniden Başlat</button>
-          </div>
-        </div>
-      </div>
       <input id="access-code-input" type="password" autocomplete="off" required class="w-full text-center text-lg font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="Erişim şifresi" />
       <button id="login-button" type="submit" class="mt-4 w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white py-3 text-sm font-bold transition">Giriş Yap</button>
       <p id="login-status" class="min-h-5 mt-3 text-xs text-rose-600" role="alert"></p>
@@ -1385,53 +1374,9 @@
         if (el) el.textContent = 'v' + APP_VERSION + ' / Guncellendi' ;
       }
 
-      function showUpdateBanner() {
-        const banner = document.getElementById('update-banner');
-        if (banner) banner.classList.remove('hidden');
-      }
-
-      // Giris ekranindaki "Guncelle ve Yeniden Baslat" butonu
-      window.applyUpdate = function() {
-        // Bekleyen yeni surum varsa aktiflestirmesi icin mesaj gonder
-        const reg = window.__swRegistration;
-        if (reg && reg.waiting) {
-          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-        }
-        // controllerchange gelmese bile kesin yenile, banner/resim simdi guncel olsun
-        setTimeout(function() { window.location.reload(); }, 300);
-      };
-
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-          navigator.serviceWorker.register('./service-worker.js').then(function(reg) {
-
-            // ---- PWA Otomatik Guncelleme Sistemi ----
-            window.__swRegistration = reg;
+                navigator.serviceWorker.register('./service-worker.js').then(function() {
             renderVersionText();
-
-            reg.addEventListener('updatefound', function() {
-              const newWorker = reg.installing;
-              if (!newWorker) return;
-              newWorker.addEventListener('statechange', function() {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  showUpdateBanner();
-                }
-              });
-            });
-
-            if (navigator.serviceWorker.controller) {
-              if (reg.waiting) showUpdateBanner();
-              else reg.update().catch(function() {});
-            }
-
-            let refreshing = false;
-            navigator.serviceWorker.addEventListener('controllerchange', function() {
-              if (refreshing) return;
-              refreshing = true;
-              window.location.reload();
-            });
-
-          }).catch(function(error) {
+          }).catch(function(error) {}).catch(function(error) {
             console.warn('Service worker kaydı başarısız:', error);
           });
         });

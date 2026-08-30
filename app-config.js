@@ -8,8 +8,8 @@
 //
 //  Bunları değiştirip deployment yaptığınızda:
 //  • Kısayol adı, tarayıcı başlığı ve manifest otomatik güncellenir.
-//  • Sürüm artırıldığında kullanıcılara "Uygulamayı güncelleyin"
-//    bildirimi çıkıp otomatik güncelleme yapılır.
+//  • VERSION artırıldığında service worker cache adı değişir; böylece
+//    tarayıcı en güncel dosyaları indirir, giriş ekranında yeni sürüm numarası görünür.
 // ============================================================
 // `self`, hem tarayıcı penceresinde (window) hem de Service Worker'da
 // global nesneyi temsil eder; böylece tek dosya her iki ortamda da çalışır.

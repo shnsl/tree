@@ -1,4 +1,4 @@
-// Build 2026-01 - sifir cache & mobil guncelleme zorlamasi
+// Build v3 - basit PWA servisi
 
 // Tek ayar dosyasi (app-config.js) cache adini ve surumu belirler.
 importScripts('./app-config.js');
@@ -30,13 +30,6 @@ self.addEventListener('activate', (event) => {
       )
     ).then(() => self.clients.claim())
   );
-});
-
-// Kullanicinin "Guncelle" butonuna tiklayinca beklemede olan yeni surumu aktiflestirir.
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
 });
 
 self.addEventListener('fetch', (event) => {
