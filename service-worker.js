@@ -1,3 +1,5 @@
+// Build 2026-01 - sifir cache & mobil guncelleme zorlamasi
+
 // Tek ayar dosyasi (app-config.js) cache adini ve surumu belirler.
 importScripts('./app-config.js');
 const APP_VERSION = self.PWA_CONFIG.VERSION;
