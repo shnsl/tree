@@ -393,7 +393,10 @@
       <button onclick="document.getElementById('json-upload-input').click()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition shadow-xs" title="JSON dosyasından proje yükle">
         <span>📂</span> <span>JSON Yükle</span>
       </button>
-      <input id="json-upload-input" type="file" accept="application/json,.json" class="hidden" onchange="uploadJSON(this.files[0])" />
+            <button onclick="reloadAppView()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold rounded-xl transition shadow-xs" title="Ana ekrani yeniler (sifre ekranina donmez)">
+        <span>🔄</span> <span>Yenile</span>
+      </button>
+<input id="json-upload-input" type="file" accept="application/json,.json" class="hidden" onchange="uploadJSON(this.files[0])" />
     </div>
   </header>
 
@@ -1168,7 +1171,7 @@
         if (node.description) h += 24;
         if (node.tags && node.tags.length > 0) h += 26;
         if (node.fields && node.fields.length > 0) {
-          const visibleCount = Math.min(node.fields.length, 3);
+          const visibleCount = Math.min(node.fields.length, 6);
           h += 12 + visibleCount * 22;
         }
         return h;
@@ -1415,8 +1418,20 @@ function listenForFirebaseProject() {
           details,
           timestamp,
           timestampMs: Date.now(),
-          timestampDisplay: getActivityDate(timestamp)
-        }).catch((error) => {
+          timestampDisplay: getActivityDate(timestamp)        })
+          .then(() => firebaseDatabase.ref(ACTIVITY_LOG_PATH).once('value'))
+          .then((snap) => {
+            const records = snap.val() || {};
+            const ids = Object.keys(records).sort((ia, ib) =>
+              (records[ib].timestampMs || 0) - (records[ia].timestampMs || 0)
+            );
+            const excess = ids.slice(50);
+            if (excess.length) {
+              const updates = {};
+              excess.forEach((id) => { updates[id] = null; });
+              return firebaseDatabase.ref(ACTIVITY_LOG_PATH).update(updates);
+            }
+          }).catch((error) => {
           console.warn('İşlem geçmişi kaydedilemedi:', error);
         });
       }
@@ -1427,7 +1442,8 @@ function listenForFirebaseProject() {
           const values = snapshot.val() || {};
           recentActivities = Object.entries(values)
             .map(([id, activity]) => ({ id, ...activity }))
-            .sort((a, b) => (b.timestampMs || Date.parse(b.timestamp) || 0) - (a.timestampMs || Date.parse(a.timestamp) || 0));
+            .sort((a, b) => (b.timestampMs || Date.parse(b.timestamp) || 0) - (a.timestampMs || Date.parse(a.timestamp) || 0))
+            .slice(0, 50);
           renderRecentActivities();
         }, (error) => {
           console.warn('İşlem geçmişi okunamadı:', error);
@@ -1508,7 +1524,25 @@ function listenForFirebaseProject() {
         if (activity.entityType === 'relation') window.deleteRelation(activity.entityId);
       };
 
-      window.handleLogin = function(event) {
+            // Giris basarili oldugunda uygulamayi ac; oturum (sessionStorage) kalici oldugu icin
+      // sayfa yenilense bile dogrudan ana ekran acilir.
+      window.enterApp = function() {
+        document.body.classList.remove('auth-locked');
+        var loginEl = document.getElementById('login-screen');
+        if (loginEl) loginEl.remove();
+        updateStats();
+        if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+        listenForFirebaseProject();
+        listenForRecentActivities();
+      };
+
+      // Ana ekrani (yalnizca icerik) yeniler; sifre ekranina donmez.
+      window.reloadAppView = function() {
+        updateStats();
+        renderNotifications();
+        if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+      };
+window.handleLogin = function(event) {
         event.preventDefault();
         const input = document.getElementById('access-code-input');
         const button = document.getElementById('login-button');
@@ -1544,12 +1578,8 @@ function listenForFirebaseProject() {
             if (storedCode !== enteredCode) {
               throw new Error('invalid-code');
             }
-            document.body.classList.remove('auth-locked');
-            document.getElementById('login-screen').remove();
-            updateStats();
-            renderCanvas();
-            listenForFirebaseProject();
-            listenForRecentActivities();
+            try { sessionStorage.setItem('arhsAuthenticated', '1'); } catch (e) {}
+            window.enterApp();
           })
           .catch((error) => {
             status.textContent = error.message === 'invalid-code'
@@ -1792,7 +1822,7 @@ function listenForFirebaseProject() {
 
           const fieldsHtml = node.fields && node.fields.length > 0 ? `
             <div class="mt-2 pt-2 border-t border-slate-100 space-y-1 text-[11px]">
-              ${node.fields.slice(0, 3).map(f => `
+              ${node.fields.slice(0, 6).map(f => `
                 <div class="flex items-center justify-between gap-1">
                   <span class="text-slate-500 font-medium truncate">${escapeHtml(f.key)}:</span>
                   <span class="text-slate-800 font-bold truncate">${escapeHtml(f.value)}</span>
@@ -3221,20 +3251,28 @@ function listenForFirebaseProject() {
         }
       })();
 
-      // The application mounts only after the Firebase access code is verified.
-            // Mobilde numerik klavyenin otomatik acilmasi icin odaklanma:
-      var loginInputEl = document.getElementById('access-code-input');
-      if (loginInputEl) {
-        loginInputEl.focus();
-        try { loginInputEl.click(); } catch (e) {}
-        var loginScreenEl = document.getElementById('login-screen');
-        if (loginScreenEl) {
-          loginScreenEl.addEventListener('touchstart', function reopenFocus() {
+      // Oturum zaten aciksa (sayfa yenilendiginde) sifre ekranini atla, dogrudan ana ekrani ac.
+      try {
+        if (sessionStorage.getItem('arhsAuthenticated') === '1') {
+          window.enterApp();
+        } else {
+          // Mobilde numerik klavyenin otomatik acilmasi icin odaklanma:
+          var loginInputEl = document.getElementById('access-code-input');
+          if (loginInputEl) {
             loginInputEl.focus();
-          }, { once: true, passive: true });
+            try { loginInputEl.click(); } catch (e) {}
+            var loginScreenEl = document.getElementById('login-screen');
+            if (loginScreenEl) {
+              loginScreenEl.addEventListener('touchstart', function reopenFocus() {
+                loginInputEl.focus();
+              }, { once: true, passive: true });
+            }
+          }
         }
+      } catch (e) {
+        try { document.getElementById('access-code-input').focus(); } catch (e2) {}
       }
-    })();
+      })();
   </script>
 </body>
 </html>
