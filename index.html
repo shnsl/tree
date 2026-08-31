@@ -303,7 +303,7 @@
       <h2 class="text-lg font-bold text-slate-900">Varlık ve Süreç Yönetim Haritası</h2>
       <p class="mt-1 mb-6 text-xs text-slate-500">Devam etmek için erişim şifresini girin.</p>
 
-      <input id="access-code-input" type="password" autocomplete="off" required class="w-full text-center text-lg font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="Erişim şifresi" />
+      <input id="access-code-input" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" autofocus required class="w-full text-center text-lg font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="Erişim şifresi" />
       <button id="login-button" type="submit" class="mt-4 w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white py-3 text-sm font-bold transition">Giriş Yap</button>
       <p id="login-status" class="min-h-5 mt-3 text-xs text-rose-600" role="alert"></p>
         <p id="app-version-text" class="mt-2 text-[10px] text-slate-400 select-none"></p>
@@ -3222,7 +3222,18 @@ function listenForFirebaseProject() {
       })();
 
       // The application mounts only after the Firebase access code is verified.
-      document.getElementById('access-code-input').focus();
+            // Mobilde numerik klavyenin otomatik acilmasi icin odaklanma:
+      var loginInputEl = document.getElementById('access-code-input');
+      if (loginInputEl) {
+        loginInputEl.focus();
+        try { loginInputEl.click(); } catch (e) {}
+        var loginScreenEl = document.getElementById('login-screen');
+        if (loginScreenEl) {
+          loginScreenEl.addEventListener('touchstart', function reopenFocus() {
+            loginInputEl.focus();
+          }, { once: true, passive: true });
+        }
+      }
     })();
   </script>
 </body>
