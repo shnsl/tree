@@ -1,4 +1,4 @@
-// Build v4 - html/config network-first
+// Build v5 - cache-bust + html/config network-first
 
 // Tek ayar dosyasi (app-config.js) cache adini ve surumu belirler.
 importScripts('./app-config.js');
