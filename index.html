@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#059669" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -31,7 +31,7 @@
           id: './',
           start_url: './',
           scope: './',
-          display: 'standalone',
+          display: 'fullscreen',
           background_color: '#0f766e',
           theme_color: '#059669',
           orientation: 'portrait',
@@ -274,15 +274,18 @@
         width: 100%;
       }
 
-      header > div:first-child,
+      header > div:first-child {
+        justify-content: center;
+        flex-wrap: nowrap;
+        gap: 0.4rem;
+      }
       header > div:nth-child(2),
       header > div:last-child {
         justify-content: center;
         flex-wrap: wrap;
         gap: 0.4rem;
       }
-
-      header > div:last-child > div,
+header > div:last-child > div,
       header > div:last-child > button {
         flex: 1 1 calc(50% - 0.4rem);
         justify-content: center;
@@ -364,7 +367,7 @@
           id="search-input"
           placeholder="Düğüm, plaka veya alan ara..."
           oninput="handleSearch(this.value)"
-          class="w-full bg-slate-100 border border-slate-200 text-slate-800 text-xs rounded-xl pl-8 pr-2 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-colors"
+          class="w-full bg-slate-100 border border-slate-200 text-slate-800 text-xs text-center rounded-xl pl-2 pr-2 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-colors"
         />
         <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">🔍</span>
         <span id="search-count-badge" class="hidden absolute right-[4.5rem] text-[11px] font-bold px-1.5 py-0.5 rounded-full select-none"></span>
@@ -394,7 +397,7 @@
         <span>💾</span> <span>JSON İndir</span>
       </button>
 
-      <button onclick="document.getElementById('json-upload-input').click()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition shadow-xs" title="JSON dosyasından proje yükle">
+      <button onclick="document.getElementById('json-upload-input').click()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition shadow-xs" title="JSON dosyasından proje yükle">
         <span>📂</span> <span>JSON Yükle</span>
       </button>
             <button onclick="reloadAppView()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold rounded-xl transition shadow-xs" title="Ana ekrani yeniler (sifre ekranina donmez)">
