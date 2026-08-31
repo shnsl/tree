@@ -1560,7 +1560,7 @@ function listenForFirebaseProject() {
         var loginEl = document.getElementById('login-screen');
         if (loginEl) loginEl.remove();
         updateStats();
-        if (viewMode === 'canvas') window.centerCanvas(0.05); else renderOutline();
+        if (viewMode === 'canvas') window.centerCanvas(0.25); else renderOutline();
         listenForFirebaseProject();
         listenForRecentActivities();
       };
@@ -1570,7 +1570,7 @@ function listenForFirebaseProject() {
       window.reloadAppView = function() {
         updateStats();
         renderNotifications();
-        if (viewMode === 'canvas') window.centerCanvas(0.05); else renderOutline();
+        if (viewMode === 'canvas') window.centerCanvas(0.25); else renderOutline();
       };
 window.handleLogin = function(event) {
         event.preventDefault();
