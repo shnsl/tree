@@ -1168,9 +1168,19 @@ header > div:last-child > div,
         sparkles: '✨'
       };
 
+      // ---- Ayar sabitleri (app-config.js'ten okunur; degerleri oradan degistirin) ----
+      const CFG = window.PWA_CONFIG || {};
+      const CARD_MAX_FIELDS = (CFG.CARD && typeof CFG.CARD.maxVisibleFields === 'number') ? CFG.CARD.maxVisibleFields : 6;
+      const FIELD_HINT_AT = (CFG.CARD && typeof CFG.CARD.fieldHintAt === 'number') ? CFG.CARD.fieldHintAt : 3;
+      const FIELD_ROW_H = (CFG.CARD && typeof CFG.CARD.fieldRowHeight === 'number') ? CFG.CARD.fieldRowHeight : 22;
+      const RECENT_LIMIT = (typeof CFG.RECENT_ACTIVITIES_LIMIT === 'number') ? CFG.RECENT_ACTIVITIES_LIMIT : 50;
+      const NOTIF_DAYS = (CFG.NOTIFICATIONS && typeof CFG.NOTIFICATIONS.windowDays === 'number') ? CFG.NOTIFICATIONS.windowDays : 30;
+      const NOTIF_MAX_RESULTS = (CFG.NOTIFICATIONS && typeof CFG.NOTIFICATIONS.maxResults === 'number') ? CFG.NOTIFICATIONS.maxResults : 100;
+      const ICON_MAP = (CFG.ICONS && typeof CFG.ICONS === 'object') ? CFG.ICONS : ICON_EMOJIS;
+
       function getIconEmoji(name) {
         if (!name) return '📦';
-        return ICON_EMOJIS[name.toLowerCase()] || '📦';
+        return ICON_MAP[name.toLowerCase()] || '📦';
       }
 
       function estimateNodeHeight(node) {
@@ -1178,8 +1188,8 @@ header > div:last-child > div,
         if (node.description) h += 24;
         if (node.tags && node.tags.length > 0) h += 26;
         if (node.fields && node.fields.length > 0) {
-          const visibleCount = Math.min(node.fields.length, 6);
-          h += 12 + visibleCount * 22;
+          const visibleCount = Math.min(node.fields.length, CARD_MAX_FIELDS);
+          h += 12 + visibleCount * FIELD_ROW_H;
         }
         return h;
       }
@@ -1233,7 +1243,7 @@ header > div:last-child > div,
             const date = parseDateValue(field.value);
             if (!date) return;
             const daysRemaining = Math.round((date - today) / 86400000);
-            if (daysRemaining > 30) return;
+            if (daysRemaining > NOTIF_DAYS) return;
             notifications.push({
               nodeId: item.node.id,
               nodeTitle: item.node.title,
@@ -1244,7 +1254,7 @@ header > div:last-child > div,
             });
           });
         });
-        return notifications.sort((a, b) => a.daysRemaining - b.daysRemaining);
+        return notifications.sort((a, b) => a.daysRemaining - b.daysRemaining).slice(0, NOTIF_MAX_RESULTS);
       }
 
       function updateNotificationCount() {
@@ -1265,7 +1275,7 @@ header > div:last-child > div,
         updateNotificationCount();
         if (!list) return;
         if (notifications.length === 0) {
-          list.innerHTML = '<div class="text-center text-emerald-700 text-xs py-8 bg-emerald-50 rounded-xl border border-emerald-200">Önümüzdeki 30 gün içinde yaklaşan veya geçmiş tarih bulunmuyor.</div>';
+          list.innerHTML = `<div class="text-center text-emerald-700 text-xs py-8 bg-emerald-50 rounded-xl border border-emerald-200">Önümüzdeki ${NOTIF_DAYS} gün içinde yaklaşan veya geçmiş tarih bulunmuyor.</div>`;
           return;
         }
         list.innerHTML = notifications.map(notification => {
@@ -1425,14 +1435,15 @@ function listenForFirebaseProject() {
           details,
           timestamp,
           timestampMs: Date.now(),
-          timestampDisplay: getActivityDate(timestamp)        })
+          timestampDisplay: getActivityDate(timestamp)
+        })
           .then(() => firebaseDatabase.ref(ACTIVITY_LOG_PATH).once('value'))
           .then((snap) => {
             const records = snap.val() || {};
             const ids = Object.keys(records).sort((ia, ib) =>
               (records[ib].timestampMs || 0) - (records[ia].timestampMs || 0)
             );
-            const excess = ids.slice(50);
+            const excess = ids.slice(RECENT_LIMIT);
             if (excess.length) {
               const updates = {};
               excess.forEach((id) => { updates[id] = null; });
@@ -1450,7 +1461,7 @@ function listenForFirebaseProject() {
           recentActivities = Object.entries(values)
             .map(([id, activity]) => ({ id, ...activity }))
             .sort((a, b) => (b.timestampMs || Date.parse(b.timestamp) || 0) - (a.timestampMs || Date.parse(a.timestamp) || 0))
-            .slice(0, 50);
+            .slice(0, RECENT_LIMIT);
           renderRecentActivities();
         }, (error) => {
           console.warn('İşlem geçmişi okunamadı:', error);
@@ -1851,13 +1862,13 @@ window.handleLogin = function(event) {
 
           const fieldsHtml = node.fields && node.fields.length > 0 ? `
             <div class="mt-2 pt-2 border-t border-slate-100 space-y-1 text-[11px]">
-              ${node.fields.slice(0, 6).map(f => `
+              ${node.fields.slice(0, CARD_MAX_FIELDS).map(f => `
                 <div class="flex items-center justify-between gap-1">
                   <span class="text-slate-500 font-medium truncate">${escapeHtml(f.key)}:</span>
                   <span class="text-slate-800 font-bold truncate">${escapeHtml(f.value)}</span>
                 </div>
               `).join('')}
-              ${node.fields.length > 3 ? `<div class="text-[10px] text-slate-400 font-medium">+${node.fields.length - 3} alan daha...</div>` : ''}
+              ${node.fields.length > FIELD_HINT_AT ? `<div class="text-[10px] text-slate-400 font-medium">+${node.fields.length - FIELD_HINT_AT} alan daha...</div>` : ''}
             </div>
           ` : '';
 
@@ -2610,7 +2621,7 @@ window.handleLogin = function(event) {
         if (relBadge) relBadge.textContent = String(nodeRels.length);
         if (relsListContainer) {
           if (nodeRels.length === 0) {
-            relsListContainer.innerHTML = '<div class="text-slate-400 py-1.5 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">Bu düğüme bağlı çapraz ilişki bulunmuyor.</div>';
+relsListContainer.innerHTML = '<div class="text-slate-400 py-1.5 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">Bu düğüme bağlı çapraz ilişki bulunmuyor.</div>';
           } else {
             relsListContainer.innerHTML = nodeRels.map(r => {
               const isSrc = r.sourceNodeId === nodeId;
