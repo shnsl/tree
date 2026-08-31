@@ -1558,19 +1558,26 @@ function listenForFirebaseProject() {
         renderCanvas();
       };
 
+      window.requestAppFullscreen = function() {
+        try {
+          if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+            var p = document.documentElement.requestFullscreen();
+            if (p && p.catch) p.catch(function() {});
+          }
+        } catch (e) {}
+      };
+
       window.enterApp = function() {
         document.body.classList.remove('auth-locked');
         var loginEl = document.getElementById('login-screen');
         if (loginEl) loginEl.remove();
+        // Telefon bildirim cubugunu (saat/sarj) gizlemek icin tam ekran iste
+        window.requestAppFullscreen();
         updateStats();
         if (viewMode === 'canvas') window.centerCanvas(0.25); else renderOutline();
         listenForFirebaseProject();
         listenForRecentActivities();
-      };
-
-      // Ana ekrani (yalnizca icerik) yeniler; sifre ekranina donmez.
-      // Tuval modunda %5 zoom ile ortalanmis sekilde tazeler.
-      window.reloadAppView = function() {
+      };window.reloadAppView = function() {
         updateStats();
         renderNotifications();
         if (viewMode === 'canvas') window.centerCanvas(0.25); else renderOutline();
@@ -3289,22 +3296,41 @@ window.handleLogin = function(event) {
         if (sessionStorage.getItem('arhsAuthenticated') === '1') {
           window.enterApp();
         } else {
-          // Mobilde numerik klavyenin otomatik acilmasi icin odaklanma:
-          var loginInputEl = document.getElementById('access-code-input');
-          if (loginInputEl) {
-            loginInputEl.focus();
-            try { loginInputEl.click(); } catch (e) {}
-            var loginScreenEl = document.getElementById('login-screen');
-            if (loginScreenEl) {
-              loginScreenEl.addEventListener('touchstart', function reopenFocus() {
-                loginInputEl.focus();
-              }, { once: true, passive: true });
+          // Giris sayfasinda imlec dogrudan sifre kutusuna gelsin ve numerik klavye acilsin.
+          (function autoFocusLogin() {
+            var loginInputEl = document.getElementById('access-code-input');
+            if (!loginInputEl) return;
+            function focusIt() {
+              try { loginInputEl.focus({ preventScroll: true }); } catch (e) { try { loginInputEl.focus(); } catch (e2) {} }
             }
-          }
+            // Hemen ve coklu gecikmeli deneme (mobil tarayicilar bazen gecikmeyle klavyeyi acar)
+            focusIt();
+            [150, 350, 700, 1200, 1800].forEach(function(delay) {
+              setTimeout(focusIt, delay);
+            });
+            var loginScreenEl = document.getElementById('login-screen');
+            if (loginScreenEl && window.matchMedia('(pointer: coarse)').matches) {
+              // Mobilde kullanicinin herhangi bir yere ilk dokunusu klavyeyi acar;
+              // ayrica sifre kutusuna ayrica tiklamaya gerek kalmaz.
+              loginScreenEl.addEventListener('touchstart', function reopenFocusOnce() {
+                focusIt();
+                try { loginInputEl.click(); } catch (e) {}
+              }, { once: true, passive: true });
+              loginScreenEl.addEventListener('mousedown', function reopenFocusMouse() {
+                focusIt();
+              }, { once: true });
+            }
+          })();
         }
       } catch (e) {
         try { document.getElementById('access-code-input').focus(); } catch (e2) {}
       }
+      // Kullanicinin herhangi bir yere ilk dokunusu tam ekrani da zorlar (bildirim cubugu gizlenir)
+      ['touchstart', 'mousedown'].forEach(function(evt) {
+        document.addEventListener(evt, function onFirstTouch() {
+          window.requestAppFullscreen();
+        }, { once: true, passive: true });
+      });
       })();
   </script>
 </body>
