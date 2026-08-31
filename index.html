@@ -278,16 +278,20 @@
       header > div:nth-child(2),
       header > div:last-child {
         justify-content: center;
-      }
-
-      header > div:last-child {
-        gap: 0.35rem;
+        flex-wrap: wrap;
+        gap: 0.4rem;
       }
 
       header > div:last-child > div,
       header > div:last-child > button {
-        flex: 1 1 auto;
+        flex: 1 1 calc(50% - 0.4rem);
         justify-content: center;
+        width: auto;
+        min-width: 0;
+      }
+
+      header > div:last-child > div[class*="bg-slate-100"] {
+        flex: 1 1 100%;
       }
 
       #canvas-container > div.absolute.bottom-4 {
@@ -1526,21 +1530,47 @@ function listenForFirebaseProject() {
 
             // Giris basarili oldugunda uygulamayi ac; oturum (sessionStorage) kalici oldugu icin
       // sayfa yenilense bile dogrudan ana ekran acilir.
+      // Tuvali verilen zoom ile ortalar: zoom + pan'i icerik ortasina hizalar.
+      window.centerCanvas = function(zoomValue) {
+        zoom = zoomValue;
+        try {
+          const layouts = computeLayouts();
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          layouts.forEach(function(l) {
+            minX = Math.min(minX, l.x);
+            minY = Math.min(minY, l.y);
+            maxX = Math.max(maxX, l.x + l.width);
+            maxY = Math.max(maxY, l.y + l.height);
+          });
+          if (isFinite(minX) && isFinite(maxX)) {
+            const cX = (minX + maxX) / 2;
+            const cY = (minY + maxY) / 2;
+            const rect = document.getElementById('canvas-container').getBoundingClientRect();
+            panX = Math.round(rect.width / 2 - cX * zoom);
+            panY = Math.round(rect.height / 2 - cY * zoom);
+          }
+        } catch (e) {}
+        const zt = document.getElementById('zoom-text');
+        if (zt) zt.textContent = Math.round(zoom * 100) + '%';
+        renderCanvas();
+      };
+
       window.enterApp = function() {
         document.body.classList.remove('auth-locked');
         var loginEl = document.getElementById('login-screen');
         if (loginEl) loginEl.remove();
         updateStats();
-        if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+        if (viewMode === 'canvas') window.centerCanvas(0.05); else renderOutline();
         listenForFirebaseProject();
         listenForRecentActivities();
       };
 
       // Ana ekrani (yalnizca icerik) yeniler; sifre ekranina donmez.
+      // Tuval modunda %5 zoom ile ortalanmis sekilde tazeler.
       window.reloadAppView = function() {
         updateStats();
         renderNotifications();
-        if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+        if (viewMode === 'canvas') window.centerCanvas(0.05); else renderOutline();
       };
 window.handleLogin = function(event) {
         event.preventDefault();
