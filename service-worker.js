@@ -32,6 +32,12 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Sayfadan "hemen aktiflestir" komutu gelince beklemeyi birak (otomatik guncelleme).
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
