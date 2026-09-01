@@ -403,6 +403,9 @@ header > div:last-child > div,
             <button onclick="reloadAppView()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold rounded-xl transition shadow-xs" title="Ana ekrani yeniler (sifre ekranina donmez)">
         <span>🔄</span> <span>Yenile</span>
       </button>
+            <button id="drag-toggle-btn" onclick="toggleDragMode()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition shadow-xs" title="Kartları ve ağaçları sürüklemeyi aç/kapat">
+        <span id="drag-toggle-icon">&#128274;</span> <span id="drag-toggle-text">Sürüklemeyi Aç</span>
+      </button>
 <input id="json-upload-input" type="file" accept="application/json,.json" class="hidden" onchange="uploadJSON(this.files[0])" />
     </div>
   </header>
@@ -1603,7 +1606,28 @@ function listenForFirebaseProject() {
         if (viewMode === 'canvas') window.centerCanvas(0.25); else renderOutline();
         listenForFirebaseProject();
         listenForRecentActivities();
-      };window.reloadAppView = function() {
+      };      let dragEnabled = false;
+
+      window.toggleDragMode = function() {
+        dragEnabled = !dragEnabled;
+        const icon = document.getElementById('drag-toggle-icon');
+        const text = document.getElementById('drag-toggle-text');
+        const btn = document.getElementById('drag-toggle-btn');
+        if (icon) icon.innerHTML = dragEnabled ? '&#128275;' : '&#128274;';
+        if (text) text.textContent = dragEnabled ? 'Sürüklemeyi Kapat' : 'Sürüklemeyi Aç';
+        if (btn) {
+          if (dragEnabled) {
+            btn.className = 'flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition shadow-xs';
+            btn.title = 'Kartları ve ağaçları sürüklemeyi kapat';
+          } else {
+            btn.className = 'flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition shadow-xs';
+            btn.title = 'Kartları ve ağaçları sürüklemeyi aç';
+          }
+        }
+        try { if (viewMode === 'canvas') renderCanvas(); else renderOutline(); } catch (e) {}
+      };
+
+      window.reloadAppView = function() {
         updateStats();
         renderNotifications();
         if (viewMode === 'canvas') window.centerCanvas(0.25); else renderOutline();
@@ -1769,7 +1793,7 @@ window.handleLogin = function(event) {
               data-tree-id="${tree.id}"
             >
               <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-md border border-slate-700">
-                <div class="flex items-center gap-1.5 cursor-move" onmousedown="window.startTreeDrag(event, '${tree.id}')" ontouchstart="window.startTouchDrag(event, null, '${tree.id}')" title="Ağacı Taşımak İçin Sürükleyin">
+                <div class="flex items-center gap-1.5 ${dragEnabled ? 'cursor-move' : 'cursor-default'}" onmousedown="window.startTreeDrag(event, '${tree.id}')" ontouchstart="window.startTouchDrag(event, null, '${tree.id}')" title="Ağacı Taşımak İçin Sürükleyin">
                   <span class="text-emerald-400">✥</span>
                   <span>${escapeHtml(tree.name)}</span>
                 </div>
@@ -1944,7 +1968,7 @@ window.handleLogin = function(event) {
               <div 
                 onmousedown="window.startNodeDrag(event, '${node.id}')"
                 ontouchstart="window.startTouchDrag(event, '${node.id}', null)"
-                class="px-3 py-2 rounded-t-xl flex items-center justify-between border-b cursor-grab active:cursor-grabbing" 
+                class="px-3 py-2 rounded-t-xl flex items-center justify-between border-b ${dragEnabled ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}" 
                 style="background-color: ${isConnSource ? '#ede9fe' : isMatch ? '#fef3c7' : theme.headerBg}; border-color: ${isConnSource ? '#8b5cf6' : isMatch ? '#f59e0b' : theme.border + '40'};"
                 title="Kutuyu tuvalde serbestçe kaydırmak için basılı tutup sürükleyin"
               >
@@ -1962,8 +1986,8 @@ window.handleLogin = function(event) {
                   ` : ''}
                   ${isMatch && !isConnecting ? `<span class="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-amber-500 text-white shadow-xs">🔍 Eşleşti</span>` : ''}
                   <span
-                    class="p-0.5 text-slate-400 hover:text-emerald-700 text-xs transition cursor-grab active:cursor-grabbing"
-                    draggable="true"
+                    class="p-0.5 text-slate-400 hover:text-emerald-700 text-xs transition ${dragEnabled ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}"
+                    draggable="${dragEnabled ? 'true' : 'false'}"
                     ondragstart="window.handleNodeDragStart(event, '${node.id}')"
                     title="Hiyerarşide başka bir düğümün altına taşımak için sürükleyin"
                   >✥</span>
@@ -2742,7 +2766,7 @@ relsListContainer.innerHTML = '<div class="text-slate-400 py-1.5 text-center bg-
       };
 
       // Drag Individual Node or Tree Root Logic
-      window.startNodeDrag = function(e, nodeId) {
+      window.startNodeDrag = function(e, nodeId) { if (!dragEnabled) return;
         const match = findNodeInTree(project.trees, nodeId);
         if (!match) return;
 
@@ -2780,7 +2804,7 @@ relsListContainer.innerHTML = '<div class="text-slate-400 py-1.5 text-center bg-
       let touchDragState = null;
       let suppressNextTouchClick = false;
 
-      window.startTouchDrag = function(e, nodeId, treeId) {
+      window.startTouchDrag = function(e, nodeId, treeId) { if (!dragEnabled) return;
         if (e.touches.length !== 1 || e.target.closest('button, input, select, a')) {
           touchDragState = null;
           return;
@@ -2819,7 +2843,7 @@ relsListContainer.innerHTML = '<div class="text-slate-400 py-1.5 text-center bg-
         e.stopPropagation();
       };
 
-      window.startTreeDrag = function(e, treeId) {
+      window.startTreeDrag = function(e, treeId) { if (!dragEnabled) return;
         e.stopPropagation();
         const tree = project.trees.find(t => t.id === treeId);
         if (!tree) return;
@@ -2901,7 +2925,7 @@ relsListContainer.innerHTML = '<div class="text-slate-400 py-1.5 text-center bg-
       // Node Drag & Drop (Reparenting)
       let draggedNodeId = null;
 
-      window.handleNodeDragStart = function(e, nodeId) {
+      window.handleNodeDragStart = function(e, nodeId) { if (!dragEnabled) return;
         draggedNodeId = nodeId;
         e.dataTransfer.setData('text/plain', nodeId);
       };
