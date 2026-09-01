@@ -265,13 +265,13 @@
     @media (max-width: 768px) {
       header {
         align-items: stretch;
-        max-height: 42vh;
+        max-height: 34vh;
         overflow-y: auto;
       }
       /* Mobilde tum header butonlari ve arama cubugu ayni yukseklikte gorunsun */
       header button,
       header input[type="text"] {
-        min-height: 40px;
+        min-height: 32px;
       }
 
       header > div,
@@ -390,15 +390,15 @@ header > div:last-child > div,
         <button onclick="handleZoomReset()" class="px-2 py-1 hover:bg-white rounded-lg text-slate-600 transition-colors text-[11px]" title="Sıfırla">Sıfırla</button>
       </div>
 
+            <button onclick="logoutAndLock()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold rounded-xl transition shadow-xs" title="Oturumu kapat: 3 kez Basin">
+        <span>&#128682;</span> <span id="logout-text">Çıkış Yap</span>
+      </button>
       <button onclick="setCanvasSize()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition shadow-xs border border-indigo-500">
         <span>🖼️</span> <span>Tuval Boyutu</span>
       </button>
 
       <button onclick="toggleDarkMode()" id="theme-toggle" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition shadow-xs border border-slate-600">
         <span id="theme-icon">🌙</span> <span id="theme-text">Koyu Mod</span>
-      </button>
-            <button onclick="logoutAndLock()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold rounded-xl transition shadow-xs" title="Oturumu kapat: 3 kez Basin">
-        <span>&#128682;</span> <span id="logout-text">Çıkış Yap</span>
       </button>
 
       <button onclick="downloadJSON()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition shadow-xs">
