@@ -32,7 +32,7 @@
           start_url: './',
           scope: './',
           display: 'standalone',
-          background_color: '#0f766e',
+          background_color: '#000000',
           theme_color: '#000000',
           orientation: 'portrait',
           icons: icons
@@ -414,11 +414,11 @@
         <span>💾</span> <span>JSON İndir</span>
       </button>
 
-      <button onclick="document.getElementById('json-upload-input').click()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition shadow-xs" title="JSON dosyasından proje yükle">
-        <span>📂</span> <span>JSON Yükle</span>
-      </button>
             <button onclick="reloadAppView()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold rounded-xl transition shadow-xs" title="Ana ekrani yeniler (sifre ekranina donmez)">
         <span>🔄</span> <span>Yenile</span>
+      </button>
+      <button onclick="document.getElementById('json-upload-input').click()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition shadow-xs" title="JSON dosyasından proje yükle">
+        <span>📂</span> <span>JSON Yükle</span>
       </button>
             <button id="drag-toggle-btn" onclick="toggleDragMode()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition shadow-xs" title="Kartları ve ağaçları sürüklemeyi aç/kapat">
         <span id="drag-toggle-icon">&#128274;</span> <span id="drag-toggle-text">Sürüklemeyi Aç</span>
