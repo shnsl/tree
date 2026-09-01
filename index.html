@@ -268,6 +268,11 @@
         max-height: 42vh;
         overflow-y: auto;
       }
+      /* Mobilde tum header butonlari ve arama cubugu ayni yukseklikte gorunsun */
+      header button,
+      header input[type="text"] {
+        min-height: 40px;
+      }
 
       header > div,
       header > div > div {
@@ -392,6 +397,9 @@ header > div:last-child > div,
       <button onclick="toggleDarkMode()" id="theme-toggle" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition shadow-xs border border-slate-600">
         <span id="theme-icon">🌙</span> <span id="theme-text">Koyu Mod</span>
       </button>
+            <button onclick="logoutAndLock()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold rounded-xl transition shadow-xs" title="Oturumu kapat: 3 kez Basin">
+        <span>&#128682;</span> <span id="logout-text">Çıkış Yap</span>
+      </button>
 
       <button onclick="downloadJSON()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition shadow-xs">
         <span>💾</span> <span>JSON İndir</span>
@@ -405,9 +413,6 @@ header > div:last-child > div,
       </button>
             <button id="drag-toggle-btn" onclick="toggleDragMode()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition shadow-xs" title="Kartları ve ağaçları sürüklemeyi aç/kapat">
         <span id="drag-toggle-icon">&#128274;</span> <span id="drag-toggle-text">Sürüklemeyi Aç</span>
-      </button>
-            <button onclick="logoutAndLock()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold rounded-xl transition shadow-xs" title="Oturumu kapat ve giris sayfasina don">
-        <span>&#128682;</span> <span>Çıkış Yap</span>
       </button>
 <input id="json-upload-input" type="file" accept="application/json,.json" class="hidden" onchange="uploadJSON(this.files[0])" />
     </div>
@@ -1630,10 +1635,31 @@ function listenForFirebaseProject() {
         try { if (viewMode === 'canvas') renderCanvas(); else renderOutline(); } catch (e) {}
       };
 
+      var logoutPressCount = 0;
+      var logoutLastPress = 0;
       window.logoutAndLock = function() {
-        // Oturum belleğini temizle, sonra sayfayi yenile -> giris sayfasi gosterilir.
-        try { sessionStorage.removeItem('arhsAuthenticated'); } catch (e) {}
-        window.location.reload();
+        var now = Date.now();
+        // Son basistan 1200ms'den fazla gectiyse sayaci sifirla (basilari grupla).
+        if (now - logoutLastPress > 1200) {
+          logoutPressCount = 0;
+        }
+        logoutLastPress = now;
+        logoutPressCount++;
+        if (logoutPressCount >= 3) {
+          // 3. kisa aralikli basista cikis yap.
+          try { sessionStorage.removeItem('arhsAuthenticated'); } catch (e) {}
+          window.location.reload();
+        } else {
+          // Arayuzde ilerlemeyi goster: Cikis Yap (1/3), (2/3) ...
+          var txt = document.getElementById('logout-text');
+          if (txt) txt.textContent = 'Çıkış Yap (' + logoutPressCount + '/3)';
+          setTimeout(function() {
+            var el = document.getElementById('logout-text');
+            if (el && el.textContent.indexOf('/3)') !== -1) {
+              el.textContent = 'Çıkış Yap';
+            }
+          }, 1500);
+        }
       };
 
       window.reloadAppView = function() {
