@@ -406,6 +406,9 @@ header > div:last-child > div,
             <button id="drag-toggle-btn" onclick="toggleDragMode()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition shadow-xs" title="Kartları ve ağaçları sürüklemeyi aç/kapat">
         <span id="drag-toggle-icon">&#128274;</span> <span id="drag-toggle-text">Sürüklemeyi Aç</span>
       </button>
+            <button onclick="logoutAndLock()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold rounded-xl transition shadow-xs" title="Oturumu kapat ve giris sayfasina don">
+        <span>&#128682;</span> <span>Çıkış Yap</span>
+      </button>
 <input id="json-upload-input" type="file" accept="application/json,.json" class="hidden" onchange="uploadJSON(this.files[0])" />
     </div>
   </header>
@@ -1625,6 +1628,12 @@ function listenForFirebaseProject() {
           }
         }
         try { if (viewMode === 'canvas') renderCanvas(); else renderOutline(); } catch (e) {}
+      };
+
+      window.logoutAndLock = function() {
+        // Oturum belleğini temizle, sonra sayfayi yenile -> giris sayfasi gosterilir.
+        try { sessionStorage.removeItem('arhsAuthenticated'); } catch (e) {}
+        window.location.reload();
       };
 
       window.reloadAppView = function() {
@@ -3341,9 +3350,10 @@ relsListContainer.innerHTML = '<div class="text-slate-400 py-1.5 text-center bg-
         }
       })();
 
-      // Oturum zaten aciksa (sayfa yenilendiginde) sifre ekranini atla, dogrudan ana ekrani ac.
+      // Her gercek sayfa acilisinda (F5 / URL yenilemesi / otomatik guncelleme reload) giris sayfasi gosterilir.
+      // Otomatik oturum atlamasi yok; sadece 'Cikis Yap' butonu oturumu sonlandirir.
       try {
-        if (sessionStorage.getItem('arhsAuthenticated') === '1') {
+        if (false && sessionStorage.getItem('arhsAuthenticated') === '1') {
           window.enterApp();
         } else {
           // Giris sayfasinda imlec dogrudan sifre kutusuna gelsin ve numerik klavye acilsin.
