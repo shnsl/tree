@@ -324,12 +324,12 @@
 <body class="auth-locked w-screen h-screen overflow-hidden bg-slate-100 text-slate-800 flex flex-col select-none">
   <section id="login-screen" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
     <form onsubmit="handleLogin(event)" class="w-full max-w-sm bg-white rounded-2xl border border-slate-200 shadow-2xl p-7 text-center">
-      <div class="mx-auto mb-4 w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-2xl shadow-sm">🌿</div>
+      <div class="mx-auto mb-4 w-10 h-10 rounded-xl shadow-sm overflow-hidden" style="background: linear-gradient(135deg, #ED0073, #6C0CA3);"><img src="./icons/icon-192.png" alt="Uygulama ikonu" class="w-full h-full object-cover" /></div>
       <h2 class="text-lg font-bold text-slate-900">Varlık ve Süreç Yönetim Haritası</h2>
       <p class="mt-1 mb-6 text-xs text-slate-500">Devam etmek için erişim şifresini girin.</p>
 
       <input id="access-code-input" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" autofocus required class="w-full text-center text-lg font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" aria-label="Erişim şifresi" />
-      <button id="login-button" type="submit" class="mt-4 w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white py-3 text-sm font-bold transition">Giriş Yap</button>
+      <button id="login-button" type="submit" class="mt-4 w-full rounded-xl text-white py-3 text-sm font-bold transition shadow-lg hover:opacity-90" style="background: linear-gradient(135deg, #C4047E, #6C0CA3);">Giriş Yap</button>
       <p id="login-status" class="min-h-5 mt-3 text-xs text-rose-600" role="alert"></p>
         <p id="app-version-text" class="mt-2 text-[10px] text-slate-400 select-none"></p>
     </form>
@@ -340,7 +340,7 @@
     <div class="flex items-center gap-3">
       <div>
         <h1 class="text-sm font-bold text-slate-900 leading-tight flex items-center gap-2 transition-colors">
-          <span>Varlık ve Süreç Yönetim Haritası 🌿</span>
+          <span>Varlık ve Süreç Yönetim Haritası <img src="./icons/icon-192.png" alt="" class="inline-block w-5 h-5 rounded-md align-[-2px]" /></span>
           <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors">İnteraktif Editör</span>
         </h1>
         <p class="text-[11px] text-slate-500 transition-colors" id="header-stats">
@@ -447,7 +447,7 @@
         <span class="font-bold text-slate-800 transition-colors">İpuçları:</span>
         <span>🖱️ Tuvali kaydırmak için boşluğa sürükleyin</span>
         <span class="text-slate-300">|</span>
-        <span>➕ Kartlardaki (+) ile alt dal, (🌿) ile kardeş ekleyin</span>
+        <span>➕ Kartlardaki (+) ile alt dal, (<img src="./icons/icon-192.png" alt="" class="inline-block w-4 h-4 rounded-sm align-[-2px]" />) ile kardeş ekleyin</span>
         <span class="text-slate-300">|</span>
         <span>🔗 Kartın sağındaki mor noktadan diğer karta çapraz ilişki bağlayın</span>
       </div>
@@ -2070,7 +2070,7 @@ window.handleLogin = function(event) {
                     class="px-1.5 py-0.5 rounded bg-white hover:bg-blue-50 text-blue-700 border border-slate-200 hover:border-blue-300 font-medium transition"
                     title="Kardeş Düğüm Ekle"
                   >
-                    <span>🌿 Kardeş</span>
+                    <span><img src="./icons/icon-192.png" alt="" class="inline-block w-3.5 h-3.5 rounded-sm align-[-1px]" /> Kardeş</span>
                   </button>
                 </div>
 
@@ -2196,7 +2196,7 @@ window.handleLogin = function(event) {
                       class="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition"
                       title="Kardeş Ekle"
                     >
-                      🌿 Kardeş
+                      <img src="./icons/icon-192.png" alt="" class="inline-block w-3.5 h-3.5 rounded-sm align-[-1px]" /> Kardeş
                     </button>
                     <button
                       onclick="window.openRelationModal(null, '${node.id}')"
