@@ -265,42 +265,54 @@
     @media (max-width: 768px) {
       header {
         align-items: stretch;
-        max-height: 34vh;
-        overflow-y: auto;
+        max-height: 35vh;
+        overflow-y: hidden;
+        gap: 0.2rem;
       }
-      /* Mobilde tum header butonlari ve arama cubugu ayni yukseklikte gorunsun */
+
+      /* Mobilde tuşlar başlıkla beraber tek seferde, scroll'suz ve kompakt görünsün */
       header button,
       header input[type="text"] {
-        min-height: 32px;
+        min-height: 26px;
+        font-size: 11px;
+      }
+      header button {
+        padding-top: 3px;
+        padding-bottom: 3px;
       }
 
       header > div,
       header > div > div {
         width: 100%;
+        gap: 0.2rem;
       }
 
       header > div:first-child {
         justify-content: center;
-        flex-wrap: nowrap;
-        gap: 0.4rem;
+        flex-wrap: wrap;
+        gap: 0.2rem;
       }
       header > div:nth-child(2),
       header > div:last-child {
         justify-content: center;
         flex-wrap: wrap;
-        gap: 0.4rem;
+        gap: 0.2rem;
       }
-header > div:last-child > div,
+      header > div:last-child > div,
       header > div:last-child > button {
-        flex: 1 1 calc(50% - 0.4rem);
+        flex: 1 1 calc(50% - 0.2rem);
         justify-content: center;
         width: auto;
         min-width: 0;
       }
-
       header > div:last-child > div[class*="bg-slate-100"] {
         flex: 1 1 100%;
       }
+
+      #canvas-container > div.absolute.bottom-4 {
+        display: none;
+      }
+    }
 
       #canvas-container > div.absolute.bottom-4 {
         display: none;
