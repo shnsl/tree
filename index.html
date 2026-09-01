@@ -3400,22 +3400,23 @@ relsListContainer.innerHTML = '<div class="text-slate-400 py-1.5 text-center bg-
             function focusIt() {
               try { loginInputEl.focus({ preventScroll: true }); } catch (e) { try { loginInputEl.focus(); } catch (e2) {} }
             }
-            // Hemen ve coklu gecikmeli deneme (mobil tarayicilar bazen gecikmeyle klavyeyi acar)
+            // Hemen ve coklu gecikmeli deneme: imlec sifre kutusuna gelsin.
+            // NOT: Mobil tarayicilar, kullanici etkilesimi olmadan klavyeyi programatik
+            // acmaya izin vermez; bu yuzden klavye ancak bir dokunus sonrasi gelir.
             focusIt();
-            [150, 350, 700, 1200, 1800].forEach(function(delay) {
+            [0, 120, 300, 600, 1000, 1600, 2400, 3500].forEach(function(delay) {
               setTimeout(focusIt, delay);
             });
+            window.addEventListener('load', focusIt);
             var loginScreenEl = document.getElementById('login-screen');
             if (loginScreenEl && window.matchMedia('(pointer: coarse)').matches) {
-              // Mobilde kullanicinin herhangi bir yere ilk dokunusu klavyeyi acar;
-              // ayrica sifre kutusuna ayrica tiklamaya gerek kalmaz.
-              loginScreenEl.addEventListener('touchstart', function reopenFocusOnce() {
-                focusIt();
-                try { loginInputEl.click(); } catch (e) {}
-              }, { once: true, passive: true });
-              loginScreenEl.addEventListener('mousedown', function reopenFocusMouse() {
-                focusIt();
-              }, { once: true });
+              // Mobilde herhangi bir yere dokunuldugunda klavyeyi ac (once-lik degil kalici).
+              ['touchstart', 'touchend', 'mousedown', 'pointerdown'].forEach(function(evt) {
+                loginScreenEl.addEventListener(evt, function reopenFocus() {
+                  focusIt();
+                  try { loginInputEl.click(); } catch (e) {}
+                }, { passive: true });
+              });
             }
           })();
         }
