@@ -263,6 +263,11 @@
       touch-action: none;
     }
 
+    /* Cizgiler tuvalin her kosesinde (negatif ve tasan koordinatlarda) kIrpIlmasin */
+    #canvas-svg {
+      overflow: visible;
+    }
+
     @media (max-width: 768px) {
       header {
         align-items: stretch;
@@ -437,7 +442,7 @@
       style="background-image: radial-gradient(#334155 1px, transparent 1px); background-color: #0f172a; background-size: 24px 24px;"
     >
       <div id="canvas-stage" class="absolute origin-top-left" style="width: 10000px; height: 10000px;">
-        <svg id="canvas-svg" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 1;"></svg>
+        <svg id="canvas-svg" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 1; overflow: visible;"></svg>
         <div id="tree-headers-layer" class="absolute inset-0" style="z-index: 10;"></div>
         <div id="nodes-layer" class="absolute inset-0" style="z-index: 20;"></div>
       </div>
