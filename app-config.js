@@ -73,7 +73,7 @@ self.PWA_CONFIG = {
   THEME: {
     // PWA splash / status bar rengi (manifest background_color & theme_color)
     splashBackground: '#050505',
-    themeColor: '#171717',
+    themeColor: '#050505',
 
     // Giris ekrani arka plani (degradeler)
     loginBackgroundLight: 'linear-gradient(180deg, #fb4aa8 0%, #ED0073 22%, #C4047E 45%, #8d0894 65%, #6C0CA3 85%, #4c1d95 100%)',
