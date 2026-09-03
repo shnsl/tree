@@ -32,14 +32,24 @@
           start_url: './',
           scope: './',
           display: 'standalone',
-          background_color: '#C4047E',
-          theme_color: '#C4047E',
+          background_color: (cfg.THEME && cfg.THEME.splashBackground) || '#C4047E',
+          theme_color: (cfg.THEME && cfg.THEME.themeColor) || '#C4047E',
           orientation: 'portrait',
           icons: icons
         };
         var link = document.getElementById('dynamic-manifest');
         if (link) {
           link.href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' }));
+        }
+        // Arka plan / tema renklerini tek ayar noktasi (app-config.js THEME) uzerinden CSS degiskenlerine uygula.
+        (function applyThemeFromConfig() {
+          var t = (window.PWA_CONFIG && window.PWA_CONFIG.THEME) || {};
+          var rs = document.documentElement.style;
+          if (t.loginBackgroundLight) rs.setProperty('--bg-login-light', t.loginBackgroundLight);
+          if (t.loginBackgroundDark)  rs.setProperty('--bg-login-dark',  t.loginBackgroundDark);
+          if (t.canvasBackground)     rs.setProperty('--bg-canvas',      t.canvasBackground);
+          if (t.canvasDotColor)       rs.setProperty('--bg-canvas-dot',  t.canvasDotColor);
+        })();
           document.title = cfg.NAME + ' - İnteraktif Hiyerarşik Ağaç Editörü';
         }
       } catch (e) {}
@@ -53,6 +63,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg-login-light: linear-gradient(180deg, #fb4aa8 0%, #ED0073 22%, #C4047E 45%, #8d0894 65%, #6C0CA3 85%, #4c1d95 100%);
+      --bg-login-dark: linear-gradient(180deg, #9d174d 0%, #831843 30%, #6b21a8 60%, #4c1d95 85%, #2e1065 100%);
+      --bg-canvas: #0f172a;
+      --bg-canvas-dot: #334155;
+    }
     body { font-family: 'Plus Jakarta Sans', sans-serif; transition: background-color 0.3s ease, color 0.3s ease; }
     .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
     .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -136,8 +152,8 @@
     body.dark-mode .text-rose-800 { color: #fda4af; }
 
     body.dark-mode #canvas-container {
-      background-image: radial-gradient(#334155 1px, transparent 1px) !important;
-      background-color: #0f172a !important;
+      background-image: radial-gradient(var(--bg-canvas-dot) 1px, transparent 1px) !important;
+      background-color: var(--bg-canvas) !important;
     }
 
     body.dark-mode .bg-emerald-600 { background-color: #059669 !important; }
@@ -252,11 +268,11 @@
     }
 
     #login-screen {
-      background: linear-gradient(180deg, #fb4aa8 0%, #ED0073 22%, #C4047E 45%, #8d0894 65%, #6C0CA3 85%, #4c1d95 100%);
+      background: var(--bg-login-light);
     }
 
     body.dark-mode #login-screen {
-      background: linear-gradient(180deg, #9d174d 0%, #831843 30%, #6b21a8 60%, #4c1d95 85%, #2e1065 100%);
+      background: var(--bg-login-dark);
     }
 
     #canvas-container {
@@ -434,7 +450,7 @@
     <div
       id="canvas-container"
       class="absolute inset-0 overflow-hidden cursor-default"
-      style="background-image: radial-gradient(#334155 1px, transparent 1px); background-color: #0f172a; background-size: 24px 24px;"
+      style="background-image: radial-gradient(var(--bg-canvas-dot) 1px, transparent 1px); background-color: var(--bg-canvas); background-size: 24px 24px;"
     >
       <div id="coord-hud" class="absolute bottom-3 right-3 z-[70] pointer-events-none select-none" style="font:10px/1 monospace;color:rgba(226,232,240,0.6);letter-spacing:0.4px;background:rgba(15,23,42,0.28);padding:3px 8px;border-radius:6px;">X:0  Y:0</div>
       <div id="canvas-stage" class="absolute origin-top-left" style="width: 10000px; height: 10000px;">

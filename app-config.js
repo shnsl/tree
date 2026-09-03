@@ -64,6 +64,24 @@ self.PWA_CONFIG = {
     activity: '📈',
     check: '✅',
     sparkles: '✨'
+  },
+
+  // =================================================================
+  //  RENK / GORUNUM (THEME) - Arka plan ve tema renkleri.
+  //  Degerleri buradan degistirerek tum uygulamaya yansitin.
+  // =================================================================
+  THEME: {
+    // PWA splash / status bar rengi (manifest background_color & theme_color)
+    splashBackground: '#ED0073',
+    themeColor: '#C4047E',
+
+    // Giris ekrani arka plani (degradeler)
+    loginBackgroundLight: 'linear-gradient(180deg, #fb4aa8 0%, #ED0073 22%, #C4047E 45%, #8d0894 65%, #6C0CA3 85%, #4c1d95 100%)',
+    loginBackgroundDark:  'linear-gradient(180deg, #9d174d 0%, #831843 30%, #6b21a8 60%, #4c1d95 85%, #2e1065 100%)',
+
+    // Ana tuval (canvas) arka plani ve nokta (dot) rengi
+    canvasBackground: '#0f172a',
+    canvasDotColor: '#334155'
   }
 };
 
