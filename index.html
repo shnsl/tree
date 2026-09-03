@@ -62,6 +62,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
+    /* Norwester web fontu (projede ./norwester.otf olarak saklanir) */
+    @font-face {
+      font-family: 'Norwester';
+      src: url('./norwester.otf') format('opentype');
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
     :root {
       --bg-login-light: linear-gradient(180deg, #fb4aa8 0%, #ED0073 22%, #C4047E 45%, #8d0894 65%, #6C0CA3 85%, #4c1d95 100%);
       --bg-login-dark: linear-gradient(180deg, #9d174d 0%, #831843 30%, #6b21a8 60%, #4c1d95 85%, #2e1065 100%);
@@ -352,9 +360,13 @@
 
   <!-- Top Navigation Bar -->
   <!-- Ayrı Marka Başlık Çubuğu: uygulama ikonu her ekran/cesnet genisliginde tam ortada, yalniz kendi barinda -->
-  <div class="brand-bar w-full bg-white border-b border-slate-200 flex items-center justify-center py-1.5 transition-colors">
-    <img src="./icons/icon-192.png" alt="ARSH" class="w-10 h-10 rounded-lg object-cover" title="ARSH" />
-  </div>
+  <div class="brand-bar w-full bg-white border-b border-slate-200 flex items-center justify-center py-1.5 px-4 transition-colors">
+    <span style="font-size: 50px; font-weight: bold;font-family: Norwester, sans-serif;">A</span>
+    <span style="font-size: 50px; font-weight: bold;font-family: Norwester, sans-serif;">R</span>
+    <img src="./icons/icon-192.png" alt="ARSH" class="w-12 h-12 rounded-lg object-cover" title="ARSH" />
+    <span style="font-size: 50px; font-weight: bold;font-family: Norwester, sans-serif;">S</span>
+    <span style="font-size: 50px; font-weight: bold;font-family: Norwester, sans-serif;">H</span>
+    </div>
   <header class="bg-white border-b border-slate-200 px-4 py-2.5 flex flex-wrap items-center justify-between relative z-30 shadow-xs gap-3 transition-colors">
     <!-- Center View Switcher & Search & New Tree & Relations -->
     <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
