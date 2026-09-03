@@ -72,7 +72,7 @@ self.PWA_CONFIG = {
   // =================================================================
   THEME: {
     // PWA splash / status bar rengi (manifest background_color & theme_color)
-    splashBackground: '#ED0073',
+    splashBackground: '#050505',
     themeColor: '#C4047E',
 
     // Giris ekrani arka plani (degradeler)
