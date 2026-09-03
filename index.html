@@ -351,10 +351,11 @@
   </section>
 
   <!-- Top Navigation Bar -->
-  <header class="bg-white border-b border-slate-200 px-4 py-2.5 flex flex-wrap items-center justify-between z-30 shadow-xs gap-3 transition-colors">
-    <div class="flex items-center justify-center w-12 h-12">
-      <img src="./icons/icon-192.png" alt="ARSH" class="w-11 h-11 rounded-md object-cover" />
-    </div>
+  <!-- Ust bar ikonu: her ekran/bar genisliginde tam ortada, header gitmeye birakilmaz -->
+  <div class="fixed top-2 left-1/2 -translate-x-1/2 z-[70] flex items-center justify-center pointer-events-none">
+    <img src="./icons/icon-192.png" alt="ARSH" class="w-11 h-11 rounded-lg object-cover drop-shadow-sm" />
+  </div>
+  <header class="bg-white border-b border-slate-200 px-4 py-2.5 flex flex-wrap items-center justify-between relative z-30 shadow-xs gap-3 transition-colors">
     <!-- Center View Switcher & Search & New Tree & Relations -->
     <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
       <button onclick="addNewTree()" class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-xs">
