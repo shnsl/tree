@@ -19,7 +19,7 @@
 // global nesneyi temsil eder; böylece tek dosya her iki ortamda da çalışır.
 self.PWA_CONFIG = {
   SHORT_NAME: 'ARSH',
-  VERSION: '8',
+  VERSION: '9',
   NAME: 'Varlık ve Süreç Yönetim Haritası',
 
   // ================================================================
@@ -31,7 +31,7 @@ self.PWA_CONFIG = {
   //                 To switch base font later: change BASE_FONT AND the family
   //                 name of the <style> @font-face block in index.html.
   // ================================================================
-  BASE_FONT: 'Glegoo',
+  BASE_FONT: 'Righteous',
   BRAND_FONT: 'Norwester',
 
   // ================================================================
