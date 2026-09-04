@@ -31,8 +31,12 @@ self.PWA_CONFIG = {
   //                 To switch base font later: change BASE_FONT AND the family
   //                 name of the <style> @font-face block in index.html.
   // ================================================================
-  BASE_FONT: 'Righteous',
-  BRAND_FONT: 'Norwester',
+  FONTS: {
+    // Put your .otf/.ttf font into ./fonts/ then set name+file below.
+    //  name: font family used in app (e.g. Saturnest); file: filename in ./fonts/
+    BASE:  { name: 'Saturnest', file: 'Saturnest.otf' },
+    BRAND: { name: 'Norwester', file: 'Norwester.otf' }
+  },
 
   // ================================================================
   //  UYGULAMA GÖRÜNÜM & LİMİT AYARLARI  (isterseniz bu değerleri düzenleyin)
