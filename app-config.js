@@ -23,6 +23,18 @@ self.PWA_CONFIG = {
   NAME: 'Varlık ve Süreç Yönetim Haritası',
 
   // ================================================================
+  //  FONT (TYPE) SETTINGS
+  //  - BASE_FONT  : Font family used by the whole UI EXCEPT the ARSH title.
+  //                 The @font-face embedded font in index.html uses this family
+  //                 name. Default: Glegoo.
+  //  - BRAND_FONT : Font family used by the "A R S H" title (default Norwester).
+  //                 To switch base font later: change BASE_FONT AND the family
+  //                 name of the <style> @font-face block in index.html.
+  // ================================================================
+  BASE_FONT: 'Glegoo',
+  BRAND_FONT: 'Norwester',
+
+  // ================================================================
   //  UYGULAMA GÖRÜNÜM & LİMİT AYARLARI  (isterseniz bu değerleri düzenleyin)
   // ================================================================
 
