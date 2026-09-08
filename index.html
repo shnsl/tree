@@ -1766,33 +1766,11 @@ function listenForFirebaseProject() {
         }
       };
 
-      window.reloadAppView = function() {
+      window.reloadAppView = function () {
         updateStats();
         renderNotifications();
-        if (viewMode === 'canvas') {
-          try {
-            const layouts = computeLayouts();
-            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-            layouts.forEach(function(l) {
-              if (!l) return;
-              minX = Math.min(minX, l.x); minY = Math.min(minY, l.y);
-              maxX = Math.max(maxX, l.x + l.width); maxY = Math.max(maxY, l.y + l.height);
-            });
-            const rect = document.getElementById('canvas-container').getBoundingClientRect();
-            if (isFinite(minX) && isFinite(maxX) && layouts.length > 0) {
-              const dw = (maxX - minX) + 320;
-              const dh = (maxY - minY) + 260;
-              const fit = Math.min(rect.width / Math.max(120, dw), rect.height / Math.max(60, dh));
-              window.centerCanvas(Math.max(0.15, Math.min(fit, 1.1)));
-            } else {
-              window.centerCanvas(0.5);
-            }
-          } catch (ee) {
-            try { window.centerCanvas(0.5); } catch (e2) {}
-          }
-        } else {
-          renderOutline();
-        }
+        if (viewMode === 'canvas') { try { window.__fitCenter(); } catch (e) { renderCanvas(); } }
+        else { renderOutline(); }
         buildCanvasTabs();
       };
 window.handleLogin = function(event) {
@@ -1907,6 +1885,28 @@ window.handleLogin = function(event) {
         if (st) st.cb = null;
         window.__apClose();
       };
+      window.__fitCenter = function () {
+        try {
+          const layouts = computeLayouts();
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          let n = 0;
+          (layouts || []).forEach(function (l) { if (l) { n++; minX = Math.min(minX, l.x); minY = Math.min(minY, l.y); maxX = Math.max(maxX, l.x + l.width); maxY = Math.max(maxY, l.y + l.height); } });
+          if (n === 0 || !isFinite(minX)) { try { renderCanvas(); } catch (e) {} return; }
+          const cc = document.getElementById('canvas-container');
+          const W = cc && cc.clientWidth ? cc.clientWidth : (window.innerWidth || 1200);
+          const H = cc && cc.clientHeight ? cc.clientHeight : (window.innerHeight || 780);
+          const dw = Math.max(10, maxX - minX);
+          const dh = Math.max(10, maxY - minY);
+          const PAD = 200;
+          zoom = Math.max(0.12, Math.min(W / (dw + PAD), H / (dh + PAD), 1.1));
+          const cX = minX + dw / 2, cY = minY + dh / 2;
+          panX = Math.round(W / 2 - cX * zoom);
+          panY = Math.round(H / 2 - cY * zoom);
+          const zt = document.getElementById('zoom-text');
+          if (zt) zt.textContent = Math.round(zoom * 100) + '%';
+        } catch (e) {}
+        try { renderCanvas(); } catch (e2) {}
+      };
       function currentRender() {
         if (viewMode === 'canvas') { renderCanvas(); } else { renderOutline(); }
       }
@@ -1944,12 +1944,8 @@ window.handleLogin = function(event) {
       window.__selectCanvas = function (id) {
         canvasActiveTab = id;
         try { localStorage.setItem(CANVAS_KEY, (id || '')); } catch (e2) {}
-        if (viewMode === 'canvas') {
-          var tr = null, h;
-          for (h = 0; h < project.trees.length; h++) if (project.trees[h].id === id) tr = project.trees[h];
-          if (tr) { try { panX = 100 - (tr.x || 100); panY = 120 - (tr.y || 120); } catch (e6) {} }
-          renderCanvas();
-        } else { renderOutline(); }
+        if (viewMode === 'canvas') { try { window.__fitCenter(); } catch (e3) { renderCanvas(); } }
+        else { renderOutline(); }
         buildCanvasTabs();
       };
       window.__renameCanvas = function (id) {
