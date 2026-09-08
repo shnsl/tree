@@ -339,7 +339,35 @@
         display: none;
       }
     }
-  </style>
+      /* ==== Canvas (Coklu Calisma) Sekme Cubugu ==== */
+    #canvas-tabs-bar {
+      -ms-overflow-style:none; scrollbar-width:none;
+      background:rgba(148,163,184,.10);
+    }
+    #canvas-tabs-bar::-webkit-scrollbar{display:none}
+    .ctab{
+      flex:0 0 auto; display:inline-flex; align-items:center; gap:4px;
+      font-size:12px; font-weight:700; white-space:nowrap; cursor:pointer;
+      border-radius:10px; padding:3px 4px 3px 9px; border:1px solid transparent;
+      background:transparent; color:#475569; max-width:220px; transition:all .15s ease;
+    }
+    .ctab:hover{background:rgba(148,163,184,.22); color:#0f172a}
+    .ctab.ct-on{background:#0f172a; color:#fff; border-color:#0f172a; box-shadow:0 2px 8px rgba(15,23,42,.28)}
+    .ctab .ct-name{overflow:hidden;text-overflow:ellipsis;cursor:inherit}
+    .ctab .ct-x{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:12px;line-height:1;color:#94a3b8;flex:0 0 auto}
+    .ctab.ct-on .ct-x{color:#cbd5e1}
+    .ctab .ct-x:hover{background:rgba(244,63,94,.85);color:#fff}
+    .ctab .ct-ed{padding:1px 3px;border-radius:6px;font-size:11px;opacity:.75;flex:0 0 auto}
+    .ctab .ct-ed:hover{background:rgba(56,189,248,.25);opacity:1}
+    #ct-new{
+      flex:0 0 auto; width:auto; display:inline-flex; align-items:center; gap:3px;
+      font-size:12px;font-weight:800;color:#059669;border:1px dashed #34d399;
+      border-radius:10px;padding:2px 10px;background:rgba(16,185,129,.08);cursor:pointer;
+    }
+    #ct-new:hover{background:rgba(16,185,129,.18)}
+    .ct-name-edit{width:110px;font:inherit;font-weight:700;background:#fff;color:#0f172a;border:1px solid #059669;border-radius:6px;padding:0 4px}
+
+    body.auth-locked #canvas-tabs-bar { display:none !important; }</style>
 <script>
   // fontlar ./fonts/ klasorunden yuklenir (app-config FONTS)
   (function () {
@@ -469,6 +497,11 @@
 <input id="json-upload-input" type="file" accept="application/json,.json" class="hidden" onchange="uploadJSON(this.files[0])" />
     </div>
   </header>
+<!-- Coklu tuval/calsima sekmeleri -->
+<div id="canvas-tabs-bar" class="w-full px-1 py-1 hidden items-center gap-1 overflow-x-auto border-b border-slate-200 transition-colors" style="z-index:29; position:relative; min-height:34px;">
+  <span class="flex items-center gap-0.5 w-max" id="canvas-tabs-inner"></span>
+  <button type="button" id="ct-new" onclick="window.__newCanvas()" class="hidden" title="Yeni tuval ekle">+ Yeni Tuval</button>
+</div>
 
   <!-- Main View Container -->
   <main class="flex-1 relative overflow-hidden bg-slate-100 transition-colors">
@@ -1158,6 +1191,7 @@
 
       // App UI State
       let viewMode = 'canvas';
+  let canvasActiveTab = null; // mevcut/aktif tuval (proje.trees icindeki tree)  const CANVAS_KEY = 'arsh_canvas';
       let panX = 40;
       let panY = 40;
       let zoom = 1.0;
@@ -1262,7 +1296,7 @@
       function getAllProjectNodes() {
         const list = [];
         if (!project.trees) return list;
-        for (const tree of project.trees) {
+        for (const tree of getVisibleTrees()) {
           const scan = (n) => {
             list.push({ node: n, tree, treeName: tree.name, label: '[' + tree.name + '] ' + n.title });
             if (n.children) n.children.forEach(scan);
@@ -1795,11 +1829,92 @@ window.handleLogin = function(event) {
         renderNotifications();
       }
 
+      // ---- Coklu Tuval / Calisma Sekmeleri (multitab) ----
+      function currentRender() {
+        if (viewMode === 'canvas') { renderCanvas(); } else { renderOutline(); }
+      }
+      function getVisibleTrees() {
+        if (!project || !Array.isArray(project.trees)) return [];
+        const list = project.trees;
+        if (!list.length) { canvasActiveTab = null; return list; }
+        const exists = list.some(t => t && t.id === canvasActiveTab);
+        if (!exists || !canvasActiveTab) {
+          canvasActiveTab = list[0] ? list[0].id : null;
+          try { localStorage.setItem(CANVAS_KEY, (canvasActiveTab || '')); } catch (e2) {}
+        }
+        return list.filter(t => t && t.id === canvasActiveTab);
+      }
+      function buildCanvasTabs() {
+        const bar = document.getElementById('canvas-tabs-bar');
+        const inner = document.getElementById('canvas-tabs-inner');
+        const nbtn = document.getElementById('ct-new');
+        if (!bar || !inner) return;
+        const list = (project && project.trees) ? project.trees : [];
+        !list.length ? bar.classList.add('hidden') : bar.classList.remove('hidden');
+        if (!list.length) { inner.innerHTML = ''; if (nbtn) nbtn.classList.add('hidden'); return; }
+        let s = '';
+        list.forEach(t => {
+          const act = t && t.id === canvasActiveTab;
+          s += '<div class="ctab' + (act ? ' ct-on' : '') + '" title="Tuvale git" onclick="window.__selectCanvas(\'' + t.id + '\')">'
+             + '<span class="ct-name">' + escapeHtml(t.name) + '</span>'
+             + '<span class="ct-ed" title="Yeniden adlandir" onclick="event.stopPropagation();window.__renameCanvas(\'' + t.id + '\')">&#9998;</span>'
+             + '<span class="ct-x" title="Bu tuvai (kok agaci) sil" onclick="event.stopPropagation();window.__deleteCanvas(\'' + t.id + '\')">&#10005;</span>'
+             + '</div>';
+        });
+        inner.innerHTML = s;
+        if (list.length >= 30) { if (nbtn) nbtn.classList.add('hidden'); } else { if (nbtn) nbtn.classList.remove('hidden'); }
+      }
+      window.__selectCanvas = function (id) {
+        canvasActiveTab = id;
+        try { localStorage.setItem(CANVAS_KEY, (id || '')); } catch (e2) {}
+        currentRender();
+      };
+      window.__renameCanvas = function (id) {
+        const tree = (project.trees || []).find(t => t.id === id);
+        if (!tree) return;
+        const nm = window.prompt('Tuval adi (her tuval ayri bir calisma alanidir):', tree.name);
+        if (nm && nm.trim()) {
+          const old = tree.name; tree.name = nm.trim();
+          saveProject();
+          recordActivity('updated', 'tree', id, old, 'Tuval adi degistirildi');
+          currentRender();
+        }
+      };
+      window.__deleteCanvas = function (id) {
+        const list = project.trees || [];
+        if (list.length <= 1) { alert('En az bir tuval (kok agac) kalmalidir.'); return; }
+        const tree = list.find(t => t.id === id);
+        if (!tree) return;
+        if (!window.confirm('"' + tree.name + '" tuvalini ve altindaki her seyi silmek istediginize emin misiniz?')) return;
+        if (window.deleteTree) window.deleteTree(id);
+        const still = project.trees || [];
+        const target = canvasActiveTab && still.some(t => t.id === canvasActiveTab) ? canvasActiveTab : (still[0] ? still[0].id : null);
+        canvasActiveTab = target;
+        try { localStorage.setItem(CANVAS_KEY, (target || '')); } catch (e3) {}
+      };
+      window.__newCanvas = function () {
+        if (!window.addNewTree) return;
+        const before = (project.trees || []).length;
+        window.addNewTree();
+        const now = (project.trees || []);
+        if (now.length > before) {
+          // yeni acilan tuvali aktif et; adini otomatik "Tuval N" yap
+          const fresh = now[now.length - 1];
+          let n = 1; const names = now.map(t => t.name);
+          while (names.indexOf('Tuval ' + n) >= 0) n++;
+          fresh.name = 'Tuval ' + n;
+          saveProject();
+          canvasActiveTab = fresh.id;
+          try { localStorage.setItem(CANVAS_KEY, fresh.id); } catch (e2) {}
+          currentRender();
+        }
+      };
+
       // Layout Computation
       function computeLayouts() {
         const nodeLayouts = new Map();
 
-        for (const tree of project.trees) {
+        for (const tree of getVisibleTrees()) {
           const getSubtreeHeight = (node) => {
             const nodeH = estimateNodeHeight(node);
             if (!node.children || node.children.length === 0 || node.collapsed) {
@@ -1862,6 +1977,7 @@ window.handleLogin = function(event) {
         }
 
         const nodeLayouts = computeLayouts();
+        buildCanvasTabs();
         const svg = document.getElementById('canvas-svg');
         const treeHeadersLayer = document.getElementById('tree-headers-layer');
         const nodesLayer = document.getElementById('nodes-layer');
@@ -1874,7 +1990,7 @@ window.handleLogin = function(event) {
         document.getElementById('canvas-container').style.backgroundSize = `${24 * zoom}px ${24 * zoom}px`;
 
         // Render Tree Headers (Draggable handles with Actions)
-        treeHeadersLayer.innerHTML = project.trees.map(tree => {
+        treeHeadersLayer.innerHTML = getVisibleTrees().map(tree => {
           return `
             <div
               class="absolute select-none"
@@ -2187,6 +2303,7 @@ window.handleLogin = function(event) {
       // Render Outline with Full Actions & Relations
       function renderOutline() {
         const container = document.getElementById('outline-content');
+        buildCanvasTabs();
         if (!container) return;
 
         const renderOutlineNode = (node, isRoot = false) => {
@@ -2294,7 +2411,7 @@ window.handleLogin = function(event) {
           `;
         };
 
-        container.innerHTML = project.trees.map((tree, idx) => `
+        container.innerHTML = getVisibleTrees().map((tree, idx) => `
           <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
             <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
               <div class="flex items-center gap-2">
@@ -2349,6 +2466,8 @@ window.handleLogin = function(event) {
         };
 
         project.trees.push(newTree);
+        canvasActiveTab = newTree.id;
+        try { localStorage.setItem(CANVAS_KEY, newTree.id); } catch (e2) {}
         saveProject();
         recordActivity('created', 'tree', newTree.id, newTree.name, 'Yeni ağaç oluşturuldu');
         if (viewMode === 'canvas') renderCanvas(); else renderOutline();
