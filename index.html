@@ -1867,7 +1867,13 @@ window.handleLogin = function(event) {
       window.__selectCanvas = function (id) {
         canvasActiveTab = id;
         try { localStorage.setItem(CANVAS_KEY, (id || '')); } catch (e2) {}
-        currentRender();
+        if (viewMode === 'canvas') {
+          var tr = null, h;
+          for (h = 0; h < project.trees.length; h++) if (project.trees[h].id === id) tr = project.trees[h];
+          if (tr) { try { panX = 100 - (tr.x || 100); panY = 120 - (tr.y || 120); } catch (e6) {} }
+          renderCanvas();
+        } else { renderOutline(); }
+        buildCanvasTabs();
       };
       window.__renameCanvas = function (id) {
         const tree = (project.trees || []).find(t => t.id === id);
@@ -1893,20 +1899,32 @@ window.handleLogin = function(event) {
         try { localStorage.setItem(CANVAS_KEY, (target || '')); } catch (e3) {}
       };
       window.__newCanvas = function () {
-        if (!window.addNewTree) return;
-        const before = (project.trees || []).length;
-        window.addNewTree();
-        const now = (project.trees || []);
-        if (now.length > before) {
-          // yeni acilan tuvali aktif et; adini otomatik "Tuval N" yap
-          const fresh = now[now.length - 1];
-          let n = 1; const names = now.map(t => t.name);
-          while (names.indexOf('Tuval ' + n) >= 0) n++;
-          fresh.name = 'Tuval ' + n;
-          saveProject();
-          canvasActiveTab = fresh.id;
-          try { localStorage.setItem(CANVAS_KEY, fresh.id); } catch (e2) {}
-          currentRender();
+        if (!project || !Array.isArray(project.trees)) return;
+        var list = project.trees;
+        var maxY = 40, k, n;
+        for (k = 0; k < list.length; k++) if (list[k].y > maxY) maxY = list[k].y;
+        var names = [];
+        for (k = 0; k < list.length; k++) names.push(list[k].name);
+        n = 1;
+        while (names.indexOf('Tuval ' + n) >= 0) n++;
+        var fresh = {
+          id: 'tree_' + Date.now(),
+          name: 'Tuval ' + n,
+          x: Math.floor(Math.random() * 400) + 100,
+          y: maxY + 380,
+          color: 'emerald',
+          rootNode: { id: 'node_' + Date.now(), title: 'Tuval ' + n, subtitle: 'Ana Kategori', icon: 'folder', color: 'emerald', fields: [], tags: [], children: [] }
+        };
+        list.push(fresh);
+        saveProject();
+        try { recordActivity('created', 'tree', fresh.id, fresh.name, 'Yeni tuval olusturuldu'); } catch (emp) {}
+        canvasActiveTab = fresh.id;
+        try { localStorage.setItem(CANVAS_KEY, fresh.id); } catch (emp2) {}
+        if (viewMode === 'canvas') {
+          try { panX = 100 - fresh.x; panY = 120 - fresh.y; } catch (emp3) {}
+          renderCanvas();
+        } else {
+          renderOutline();
         }
       };
 
