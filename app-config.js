@@ -19,7 +19,7 @@
 // global nesneyi temsil eder; böylece tek dosya her iki ortamda da çalışır.
 self.PWA_CONFIG = {
   SHORT_NAME: 'ARSH',
-  VERSION: '9',
+  VERSION: 10,
   NAME: 'Varlık ve Süreç Yönetim Haritası',
 
   // ================================================================
@@ -36,6 +36,15 @@ self.PWA_CONFIG = {
     //  name: font family used in app (e.g. Saturnest); file: filename in ./fonts/
     BASE:  { name: 'Saturnest', file: 'Saturnest.otf' },
     BRAND: { name: 'Norwester', file: 'Norwester.otf' }
+  },
+
+  ZOOM: {
+    // Uygulama ici gorgu yakınlık. Browser/CTRL zoom'undan bagimsiz, sadece bu '+'/'-' kullanilir.
+    ENABLED: true,
+    MIN: 0.85,
+    MAX: 1.35,
+    STEP: 0.05,
+    DEFAULT: 1
   },
 
   // ================================================================
