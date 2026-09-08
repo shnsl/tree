@@ -367,7 +367,21 @@
     #ct-new:hover{background:rgba(16,185,129,.18)}
     .ct-name-edit{width:110px;font:inherit;font-weight:700;background:#fff;color:#0f172a;border:1px solid #059669;border-radius:6px;padding:0 4px}
 
-    body.auth-locked #canvas-tabs-bar { display:none !important; }</style>
+    body.auth-locked #canvas-tabs-bar { display:none !important; }    /* Inline isim/al metin modal (window.prompt desteklenmeyen ortamlar icin) */
+    #arsh-prompt-wrap{ position:fixed; inset:0; z-index:2000; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.45); padding:16px; }
+    #arsh-prompt-wrap.show{ display:flex; }
+    #arsh-prompt-box{ width:100%; max-width:360px; background:#fff; color:#0f172a; border-radius:16px; box-shadow:0 18px 50px rgba(2,6,23,.35); padding:18px; }
+    #arsh-prompt-title{ font-size:14px; font-weight:800; color:#0f172a; margin:0 0 4px 0; }
+    #arsh-prompt-hint{ font-size:11px; color:#64748b; margin-bottom:10px; }
+    #arsh-prompt-input{ width:100%; box-sizing:border-box; font-size:15px; font-weight:700; color:#0f172a; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:10px; padding:9px 10px; outline:none; }
+    #arsh-prompt-input:focus{ border-color:#0ea5e9; background:#fff; box-shadow:0 0 0 3px rgba(14,165,233,.18); }
+    #arsh-prompt-actions{ display:flex; gap:8px; margin-top:12px; justify-content:flex-end; }
+    #arsh-prompt-actions button{ border:none; border-radius:9px; padding:7px 14px; font-size:12px; font-weight:800; cursor:pointer; }
+    .ap-ok{ background:#0f172a; color:#fff; }
+    .ap-ok:hover{ background:#1e293b; }
+    .ap-cancel{ background:#e2e8f0; color:#334155; }
+    .ap-cancel:hover{ background:#cbd5e1; }
+</style>
 <script>
   // fontlar ./fonts/ klasorunden yuklenir (app-config FONTS)
   (function () {
@@ -1837,6 +1851,43 @@ window.handleLogin = function(event) {
       }
 
       // ---- Coklu Tuval / Calisma Sekmeleri (multitab) ----
+      // Satir-ici (inline) isim sorgusu -- native prompt bunyesiz ortamlar icin
+      window.__ap_state = { cb: null };
+      window.__apOpen = function () {
+        const w = document.getElementById('arsh-prompt-wrap');
+        if (w) w.classList.add('show');
+        const inp = document.getElementById('arsh-prompt-input');
+        if (inp) { try { inp.focus(); inp.select(); } catch (e) {} }
+      };
+      window.__apClose = function () {
+        const w = document.getElementById('arsh-prompt-wrap');
+        if (w) w.classList.remove('show');
+      };
+      window.__askText = function (title, current) {
+        const d = document.getElementById('arsh-prompt-title');
+        if (d) d.textContent = title;
+        const inp = document.getElementById('arsh-prompt-input');
+        if (inp) inp.value = (current == null ? '' : String(current));
+        window.__ap_state.cb = { title: title };
+        const wrap = document.getElementById('arsh-prompt-wrap');
+        if (wrap) wrap.classList.add('show');
+        if (inp) { try { inp.focus(); inp.select(); } catch (e) {} }
+      };
+      window.__apOk = function () {
+        const st = window.__ap_state;
+        if (!st) return;
+        const cb = st.cb;
+        st.cb = null;
+        window.__apClose();
+        const inp = document.getElementById('arsh-prompt-input');
+        const val = inp ? inp.value : '';
+        if (cb && cb.ok) cb.ok(val);
+      };
+      window.__apCancel = function () {
+        const st = window.__ap_state;
+        if (st) st.cb = null;
+        window.__apClose();
+      };
       function currentRender() {
         if (viewMode === 'canvas') { renderCanvas(); } else { renderOutline(); }
       }
@@ -1885,16 +1936,8 @@ window.handleLogin = function(event) {
       window.__renameCanvas = function (id) {
         const tree = (project.trees || []).find(t => t.id === id);
         if (!tree) return;
-        const nm = window.prompt('Tuval adi (her tuval ayri bir calisma alanidir):', tree.name);
-        if (nm && nm.trim()) {
-          const old = tree.name;
-          tree.name = nm.trim();
-          if (tree.rootNode && tree.rootNode.title) tree.rootNode.title = tree.name;
-          saveProject();
-          try { recordActivity('updated', 'tree', id, old, 'Tuval adi degistirildi'); } catch (e2) {}
-          currentRender();
-          buildCanvasTabs();
-        }
+        window.__askText('Tuval adi (her tuval ayri bir calisma alanidir):', tree.name);
+        window.__ap_state.cb = { ok: function (nm) { if (nm && nm.trim()) { const old = tree.name; tree.name = nm.trim(); if (tree.rootNode && tree.rootNode.title) tree.rootNode.title = tree.name; saveProject(); try { recordActivity('updated', 'tree', id, old, 'Tuval adi degistirildi'); } catch (e2) {} currentRender(); buildCanvasTabs(); } } , cancel: null };
       };
       window.__deleteCanvas = function (id) {
         const list = project.trees || [];
@@ -2501,17 +2544,11 @@ window.handleLogin = function(event) {
         if (viewMode === 'canvas') renderCanvas(); else renderOutline();
       };
 
-      window.renameTree = function(treeId) {
+      window.renameTree = function (treeId) {
         const tree = project.trees.find(t => t.id === treeId);
         if (!tree) return;
-        const newName = prompt('Ağaç için yeni adı girin:', tree.name);
-        if (newName && newName.trim()) {
-          const oldName = tree.name;
-          tree.name = newName.trim();
-          saveProject();
-          recordActivity('updated', 'tree', tree.id, tree.name, `Ağaç adı: ${oldName} → ${tree.name}`);
-          if (viewMode === 'canvas') renderCanvas(); else renderOutline();
-        }
+        window.__askText('Tuval/kok agac adi girin:', tree.name);
+        window.__ap_state.cb = { ok: function (nm) { if (nm && nm.trim()) { const oldName = tree.name; tree.name = nm.trim(); if (tree.rootNode && tree.rootNode.title) tree.rootNode.title = tree.name; saveProject(); try { recordActivity('updated', 'tree', tree.id, tree.name, 'Tuval/kok agac adi: ' + oldName + ' -> ' + tree.name); } catch (e2) {} if (viewMode === 'canvas') renderCanvas(); else renderOutline(); buildCanvasTabs(); } } , cancel: null };
       };
 
       window.deleteTree = function(treeId) {
@@ -3636,5 +3673,17 @@ relsListContainer.innerHTML = '<div class="text-slate-400 py-1.5 text-center bg-
       }
       })();
   </script>
+<!-- Inline isim giris penceresi (native prompt desteklenmeyince) -->
+<div id="arsh-prompt-wrap" >
+  <div id="arsh-prompt-box" role="dialog" aria-modal="true">
+    <div id="arsh-prompt-title">Bir metin girin</div>
+    <div id="arsh-prompt-hint"></div>
+    <input id="arsh-prompt-input" type="text" autocomplete="off" onkeydown="if(event.key==='Enter'){window.__apOk();} if(event.key==='Escape'){window.__apCancel();}" />
+    <div id="arsh-prompt-actions">
+      <button type="button" class="ap-cancel" onclick="window.__apCancel()">Vazgec</button>
+      <button type="button" class="ap-ok" onclick="window.__apOk()">Kaydet</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
