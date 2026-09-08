@@ -1767,13 +1767,22 @@ function listenForFirebaseProject() {
       window.reloadAppView = function() {
         updateStats();
         renderNotifications();
-        const act = canvasActiveTab;
-        if (act) {
-          const ok = (project.trees || []).some(t => t && t.id === act);
-          try { localStorage.setItem(CANVAS_KEY, ok ? act : ''); } catch (e) {}
+        if (viewMode === 'canvas') {
+          try {
+            const vis = (project.trees || []).filter(t => t && t.id === canvasActiveTab);
+            if (vis.length) {
+              const tr = vis[0];
+              panX = 70 - (tr.x || 70);
+              panY = 120 - (tr.y || 120);
+              zoom = Math.min(Math.max(typeof zoom === 'number' && zoom > 0 ? zoom : 0.5, 0.3), 1.8);
+            } else {
+              window.centerCanvas(0.5);
+            }
+          } catch (er) {}
+          renderCanvas();
+        } else {
+          renderOutline();
         }
-        if (viewMode === 'canvas') { try { window.centerCanvas(0.25); } catch (e2) { renderCanvas(); } }
-        else { renderOutline(); }
         buildCanvasTabs();
       };
 window.handleLogin = function(event) {
