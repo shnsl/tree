@@ -1507,7 +1507,9 @@
         if (el) el.textContent = 'v' + APP_VERSION + ' / Guncellendi';
       }
 
-      if ('serviceWorker' in navigator) {
+      const _proto = location.protocol;
+      const _swOk = (_proto === 'https:' || _proto === 'http:');
+      if ('serviceWorker' in navigator && _swOk) {
         window.addEventListener('load', function() {
           navigator.serviceWorker.register('./service-worker.js?v=' + APP_VERSION)
             .then(function(reg) {
@@ -1769,17 +1771,25 @@ function listenForFirebaseProject() {
         renderNotifications();
         if (viewMode === 'canvas') {
           try {
-            const vis = (project.trees || []).filter(t => t && t.id === canvasActiveTab);
-            if (vis.length) {
-              const tr = vis[0];
-              panX = 70 - (tr.x || 70);
-              panY = 120 - (tr.y || 120);
-              zoom = Math.min(Math.max(typeof zoom === 'number' && zoom > 0 ? zoom : 0.5, 0.3), 1.8);
+            const layouts = computeLayouts();
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            layouts.forEach(function(l) {
+              if (!l) return;
+              minX = Math.min(minX, l.x); minY = Math.min(minY, l.y);
+              maxX = Math.max(maxX, l.x + l.width); maxY = Math.max(maxY, l.y + l.height);
+            });
+            const rect = document.getElementById('canvas-container').getBoundingClientRect();
+            if (isFinite(minX) && isFinite(maxX) && layouts.length > 0) {
+              const dw = (maxX - minX) + 320;
+              const dh = (maxY - minY) + 260;
+              const fit = Math.min(rect.width / Math.max(120, dw), rect.height / Math.max(60, dh));
+              window.centerCanvas(Math.max(0.15, Math.min(fit, 1.1)));
             } else {
               window.centerCanvas(0.5);
             }
-          } catch (er) {}
-          renderCanvas();
+          } catch (ee) {
+            try { window.centerCanvas(0.5); } catch (e2) {}
+          }
         } else {
           renderOutline();
         }
