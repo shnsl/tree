@@ -1753,7 +1753,14 @@ function listenForFirebaseProject() {
       window.reloadAppView = function() {
         updateStats();
         renderNotifications();
-        if (viewMode === 'canvas') window.centerCanvas(0.25); else renderOutline();
+        const act = canvasActiveTab;
+        if (act) {
+          const ok = (project.trees || []).some(t => t && t.id === act);
+          try { localStorage.setItem(CANVAS_KEY, ok ? act : ''); } catch (e) {}
+        }
+        if (viewMode === 'canvas') { try { window.centerCanvas(0.25); } catch (e2) { renderCanvas(); } }
+        else { renderOutline(); }
+        buildCanvasTabs();
       };
 window.handleLogin = function(event) {
         event.preventDefault();
@@ -1880,10 +1887,13 @@ window.handleLogin = function(event) {
         if (!tree) return;
         const nm = window.prompt('Tuval adi (her tuval ayri bir calisma alanidir):', tree.name);
         if (nm && nm.trim()) {
-          const old = tree.name; tree.name = nm.trim();
+          const old = tree.name;
+          tree.name = nm.trim();
+          if (tree.rootNode && tree.rootNode.title) tree.rootNode.title = tree.name;
           saveProject();
-          recordActivity('updated', 'tree', id, old, 'Tuval adi degistirildi');
+          try { recordActivity('updated', 'tree', id, old, 'Tuval adi degistirildi'); } catch (e2) {}
           currentRender();
+          buildCanvasTabs();
         }
       };
       window.__deleteCanvas = function (id) {
