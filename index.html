@@ -339,24 +339,7 @@
         display: none;
       }
     }
-  
-    /* ===== Uygulama ici Yakınlassma (app ZOOM) ===== */
-    #zoom-ctl { font-family: var(--base-font, 'Plus Jakarta Sans', sans-serif); }
-    #zoom-ctl button {
-      border:none; background:transparent; cursor:pointer; border-radius:9999px;
-      color:#334155; width:32px; height:32px; font-size:19px; line-height:1;
-      display:flex; align-items:center; justify-content:center;
-      transition:background .15s ease; padding:0; margin:0;
-      -webkit-tap-highlight-color: transparent;
-    }
-    #zoom-ctl button:hover { background:rgba(148,163,184,.30); }
-    #zoom-ctl button:active { background:rgba(148,163,184,.50); }
-    #zoom-val {
-      width:auto !important; min-width:58px; height:30px !important;
-      font-size:12px !important; font-weight:800 !important; letter-spacing:.4px;
-      color:#0f172a; cursor:pointer; font-family:inherit;
-    }
-    </style>
+  </style>
 <script>
   // fontlar ./fonts/ klasorunden yuklenir (app-config FONTS)
   (function () {
@@ -3506,52 +3489,5 @@ relsListContainer.innerHTML = '<div class="text-slate-400 py-1.5 text-center bg-
       }
       })();
   </script>
-<!-- Uygulama ici yakınlaştırma kontrolü -->
-<div id="zoom-ctl" role="group" aria-label="Yak last rma"
-     style="position:fixed; left:50%; bottom:10px; transform:translateX(-50%); z-index:99990;
-            display:flex; align-items:center; background:rgba(255,255,255,.92);
-            border:1px solid rgba(148,163,184,.55); border-radius:9999px; padding:3px 5px;
-            box-shadow:0 8px 22px rgba(15,23,42,.22); backdrop-filter:blur(6px);
-            -webkit-backdrop-filter:blur(6px)">
-  <button type="button" id="zoom-out" title="Kucult (-)" aria-label="Kucult">-</button>
-  <button type="button" id="zoom-val" title="Varsayılana don">100%</button>
-  <button type="button" id="zoom-in" title="Buyut (+)" aria-label="Buyut">+</button>
-</div>
-<script>
-(function () {
-  try {
-    var Z = (self.PWA_CONFIG && self.PWA_CONFIG.ZOOM) || {};
-    if (Z.ENABLED === false) return;
-    function num(v, d) { v = parseFloat(v); return isFinite(v) ? v : d; }
-    var MIN = num(Z.MIN, 0.85), MAX = num(Z.MAX, 1.35),
-        STEP = num(Z.STEP, 0.05), DEF = num(Z.DEFAULT, 1);
-    var KEY = 'arsh-zoom-v1';
-    var outB = document.getElementById('zoom-out'),
-        valB = document.getElementById('zoom-val'),
-        inB  = document.getElementById('zoom-in');
-    if (!outB || !inB || !valB) return;
-    function clamp(x) { return Math.min(MAX, Math.max(MIN, x)); }
-    function saved() { var v = parseFloat(localStorage.getItem(KEY)); return isFinite(v) ? v : DEF; }
-    function apply(z) {
-      z = Math.round(clamp(z) * 1000) / 1000;
-      var s = String(z);
-      try { document.documentElement.style.setProperty('zoom', s); }
-      catch (e1) { try { document.documentElement.style.zoom = s; } catch (e2) {} }
-      valB.textContent = Math.round(z * 100) + '%';
-    }
-    function current() {
-      var st = document.documentElement.style;
-      var sv = '';
-      try { sv = st.getPropertyValue('zoom') || st.zoom || ''; } catch (e3) { try { sv = st.zoom || ''; } catch (e4) {} }
-      var v = parseFloat(sv);
-      return isFinite(v) ? v : clamp(saved());
-    }
-    outB.addEventListener('click', function (e) { e.preventDefault(); apply(current() - STEP); localStorage.setItem(KEY, String(clamp(current() - STEP))); });
-    inB.addEventListener('click',  function (e) { e.preventDefault(); apply(current() + STEP); localStorage.setItem(KEY, String(clamp(current() + STEP))); });
-    valB.addEventListener('click', function (e) { e.preventDefault(); apply(DEF); localStorage.setItem(KEY, String(DEF)); });
-    apply(clamp(saved()));
-  } catch (e) {}
-})();
-</script>
 </body>
 </html>
