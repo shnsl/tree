@@ -66,14 +66,14 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --base-font: 'Inter-Regular';
+      --base-font: 'Saturnest';
       --brand-font: 'Norwester';
       --bg-login-light: linear-gradient(180deg, #fb4aa8 0%, #ED0073 22%, #C4047E 45%, #8d0894 65%, #6C0CA3 85%, #4c1d95 100%);
       --bg-login-dark: linear-gradient(180deg, #9d174d 0%, #831843 30%, #6b21a8 60%, #4c1d95 85%, #2e1065 100%);
       --bg-canvas: #0f172a;
       --bg-canvas-dot: #334155;
     }
-    body { font-family: var(--base-font, 'Inter-Regular'), 'Plus Jakarta Sans', sans-serif; transition: background-color 0.3s ease, color 0.3s ease; }
+    body { font-family: var(--base-font, 'Saturnest'), 'Plus Jakarta Sans', sans-serif; transition: background-color 0.3s ease, color 0.3s ease; }
     .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
     .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     .custom-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -339,49 +339,7 @@
         display: none;
       }
     }
-      /* ==== Canvas (Coklu Calisma) Sekme Cubugu ==== */
-    #canvas-tabs-bar {
-      -ms-overflow-style:none; scrollbar-width:none;
-      background:rgba(148,163,184,.10);
-    }
-    #canvas-tabs-bar::-webkit-scrollbar{display:none}
-    .ctab{
-      flex:0 0 auto; display:inline-flex; align-items:center; gap:4px;
-      font-size:12px; font-weight:700; white-space:nowrap; cursor:pointer;
-      border-radius:10px; padding:3px 4px 3px 9px; border:1px solid transparent;
-      background:transparent; color:#475569; max-width:220px; transition:all .15s ease;
-    }
-    .ctab:hover{background:rgba(148,163,184,.22); color:#0f172a}
-    .ctab.ct-on{background:#0f172a; color:#fff; border-color:#0f172a; box-shadow:0 2px 8px rgba(15,23,42,.28)}
-    .ctab .ct-name{overflow:hidden;text-overflow:ellipsis;cursor:inherit}
-    .ctab .ct-x{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:12px;line-height:1;color:#94a3b8;flex:0 0 auto}
-    .ctab.ct-on .ct-x{color:#cbd5e1}
-    .ctab .ct-x:hover{background:rgba(244,63,94,.85);color:#fff}
-    .ctab .ct-ed{padding:1px 3px;border-radius:6px;font-size:11px;opacity:.75;flex:0 0 auto}
-    .ctab .ct-ed:hover{background:rgba(56,189,248,.25);opacity:1}
-    #ct-new{
-      flex:0 0 auto; width:auto; display:inline-flex; align-items:center; gap:3px;
-      font-size:12px;font-weight:800;color:#059669;border:1px dashed #34d399;
-      border-radius:10px;padding:2px 10px;background:rgba(16,185,129,.08);cursor:pointer;
-    }
-    #ct-new:hover{background:rgba(16,185,129,.18)}
-    .ct-name-edit{width:110px;font:inherit;font-weight:700;background:#fff;color:#0f172a;border:1px solid #059669;border-radius:6px;padding:0 4px}
-
-    body.auth-locked #canvas-tabs-bar { display:none !important; }    /* Inline isim/al metin modal (window.prompt desteklenmeyen ortamlar icin) */
-    #arsh-prompt-wrap{ position:fixed; inset:0; z-index:2000; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.45); padding:16px; }
-    #arsh-prompt-wrap.show{ display:flex; }
-    #arsh-prompt-box{ width:100%; max-width:360px; background:#fff; color:#0f172a; border-radius:16px; box-shadow:0 18px 50px rgba(2,6,23,.35); padding:18px; }
-    #arsh-prompt-title{ font-size:14px; font-weight:800; color:#0f172a; margin:0 0 4px 0; }
-    #arsh-prompt-hint{ font-size:11px; color:#64748b; margin-bottom:10px; }
-    #arsh-prompt-input{ width:100%; box-sizing:border-box; font-size:15px; font-weight:700; color:#0f172a; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:10px; padding:9px 10px; outline:none; }
-    #arsh-prompt-input:focus{ border-color:#0ea5e9; background:#fff; box-shadow:0 0 0 3px rgba(14,165,233,.18); }
-    #arsh-prompt-actions{ display:flex; gap:8px; margin-top:12px; justify-content:flex-end; }
-    #arsh-prompt-actions button{ border:none; border-radius:9px; padding:7px 14px; font-size:12px; font-weight:800; cursor:pointer; }
-    .ap-ok{ background:#0f172a; color:#fff; }
-    .ap-ok:hover{ background:#1e293b; }
-    .ap-cancel{ background:#e2e8f0; color:#334155; }
-    .ap-cancel:hover{ background:#cbd5e1; }
-</style>
+  </style>
 <script>
   // fontlar ./fonts/ klasorunden yuklenir (app-config FONTS)
   (function () {
@@ -511,11 +469,6 @@
 <input id="json-upload-input" type="file" accept="application/json,.json" class="hidden" onchange="uploadJSON(this.files[0])" />
     </div>
   </header>
-<!-- Coklu tuval/calsima sekmeleri -->
-<div id="canvas-tabs-bar" class="w-full px-1 py-1 hidden items-center gap-1 overflow-x-auto border-b border-slate-200 transition-colors" style="z-index:29; position:relative; min-height:34px;">
-  <span class="flex items-center gap-0.5 w-max" id="canvas-tabs-inner"></span>
-  <button type="button" id="ct-new" onclick="window.__newCanvas()" class="hidden" title="Yeni tuval ekle">+ Yeni Tuval</button>
-</div>
 
   <!-- Main View Container -->
   <main class="flex-1 relative overflow-hidden bg-slate-100 transition-colors">
@@ -1205,7 +1158,6 @@
 
       // App UI State
       let viewMode = 'canvas';
-  let canvasActiveTab = null; // mevcut/aktif tuval (proje.trees icindeki tree)  const CANVAS_KEY = 'arsh_canvas';
       let panX = 40;
       let panY = 40;
       let zoom = 1.0;
@@ -1310,7 +1262,7 @@
       function getAllProjectNodes() {
         const list = [];
         if (!project.trees) return list;
-        for (const tree of getVisibleTrees()) {
+        for (const tree of project.trees) {
           const scan = (n) => {
             list.push({ node: n, tree, treeName: tree.name, label: '[' + tree.name + '] ' + n.title });
             if (n.children) n.children.forEach(scan);
@@ -1507,9 +1459,7 @@
         if (el) el.textContent = 'v' + APP_VERSION + ' / Guncellendi';
       }
 
-      const _proto = location.protocol;
-      const _swOk = (_proto === 'https:' || _proto === 'http:');
-      if ('serviceWorker' in navigator && _swOk) {
+      if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
           navigator.serviceWorker.register('./service-worker.js?v=' + APP_VERSION)
             .then(function(reg) {
@@ -1766,12 +1716,10 @@ function listenForFirebaseProject() {
         }
       };
 
-      window.reloadAppView = function () {
+      window.reloadAppView = function() {
         updateStats();
         renderNotifications();
-        if (viewMode === 'canvas') { try { window.__fitCenter(); } catch (e) { renderCanvas(); } }
-        else { renderOutline(); }
-        buildCanvasTabs();
+        if (viewMode === 'canvas') window.centerCanvas(0.25); else renderOutline();
       };
 window.handleLogin = function(event) {
         event.preventDefault();
@@ -1847,160 +1795,11 @@ window.handleLogin = function(event) {
         renderNotifications();
       }
 
-      // ---- Coklu Tuval / Calisma Sekmeleri (multitab) ----
-      // Satir-ici (inline) isim sorgusu -- native prompt bunyesiz ortamlar icin
-      window.__ap_state = { cb: null };
-      window.__apOpen = function () {
-        const w = document.getElementById('arsh-prompt-wrap');
-        if (w) w.classList.add('show');
-        const inp = document.getElementById('arsh-prompt-input');
-        if (inp) { try { inp.focus(); inp.select(); } catch (e) {} }
-      };
-      window.__apClose = function () {
-        const w = document.getElementById('arsh-prompt-wrap');
-        if (w) w.classList.remove('show');
-      };
-      window.__askText = function (title, current) {
-        const d = document.getElementById('arsh-prompt-title');
-        if (d) d.textContent = title;
-        const inp = document.getElementById('arsh-prompt-input');
-        if (inp) inp.value = (current == null ? '' : String(current));
-        window.__ap_state.cb = { title: title };
-        const wrap = document.getElementById('arsh-prompt-wrap');
-        if (wrap) wrap.classList.add('show');
-        if (inp) { try { inp.focus(); inp.select(); } catch (e) {} }
-      };
-      window.__apOk = function () {
-        const st = window.__ap_state;
-        if (!st) return;
-        const cb = st.cb;
-        st.cb = null;
-        window.__apClose();
-        const inp = document.getElementById('arsh-prompt-input');
-        const val = inp ? inp.value : '';
-        if (cb && cb.ok) cb.ok(val);
-      };
-      window.__apCancel = function () {
-        const st = window.__ap_state;
-        if (st) st.cb = null;
-        window.__apClose();
-      };
-      window.__fitCenter = function () {
-        try {
-          const layouts = computeLayouts();
-          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-          let n = 0;
-          (layouts || []).forEach(function (l) { if (l) { n++; minX = Math.min(minX, l.x); minY = Math.min(minY, l.y); maxX = Math.max(maxX, l.x + l.width); maxY = Math.max(maxY, l.y + l.height); } });
-          if (n === 0 || !isFinite(minX)) { try { renderCanvas(); } catch (e) {} return; }
-          const cc = document.getElementById('canvas-container');
-          const W = cc && cc.clientWidth ? cc.clientWidth : (window.innerWidth || 1200);
-          const H = cc && cc.clientHeight ? cc.clientHeight : (window.innerHeight || 780);
-          const dw = Math.max(10, maxX - minX);
-          const dh = Math.max(10, maxY - minY);
-          const PAD = 200;
-          zoom = Math.max(0.12, Math.min(W / (dw + PAD), H / (dh + PAD), 1.1));
-          const cX = minX + dw / 2, cY = minY + dh / 2;
-          panX = Math.round(W / 2 - cX * zoom);
-          panY = Math.round(H / 2 - cY * zoom);
-          const zt = document.getElementById('zoom-text');
-          if (zt) zt.textContent = Math.round(zoom * 100) + '%';
-        } catch (e) {}
-        try { renderCanvas(); } catch (e2) {}
-      };
-      function currentRender() {
-        if (viewMode === 'canvas') { renderCanvas(); } else { renderOutline(); }
-      }
-      function getVisibleTrees() {
-        if (!project || !Array.isArray(project.trees)) return [];
-        const list = project.trees;
-        if (!list.length) { canvasActiveTab = null; return list; }
-        const exists = list.some(t => t && t.id === canvasActiveTab);
-        if (!exists || !canvasActiveTab) {
-          canvasActiveTab = list[0] ? list[0].id : null;
-          try { localStorage.setItem(CANVAS_KEY, (canvasActiveTab || '')); } catch (e2) {}
-        }
-        return list.filter(t => t && t.id === canvasActiveTab);
-      }
-      function buildCanvasTabs() {
-        const bar = document.getElementById('canvas-tabs-bar');
-        const inner = document.getElementById('canvas-tabs-inner');
-        const nbtn = document.getElementById('ct-new');
-        if (!bar || !inner) return;
-        const list = (project && project.trees) ? project.trees : [];
-        !list.length ? bar.classList.add('hidden') : bar.classList.remove('hidden');
-        if (!list.length) { inner.innerHTML = ''; if (nbtn) nbtn.classList.add('hidden'); return; }
-        let s = '';
-        list.forEach(t => {
-          const act = t && t.id === canvasActiveTab;
-          s += '<div class="ctab' + (act ? ' ct-on' : '') + '" title="Tuvale git" onclick="window.__selectCanvas(\'' + t.id + '\')">'
-             + '<span class="ct-name">' + escapeHtml(t.name) + '</span>'
-             + '<span class="ct-ed" title="Yeniden adlandir" onclick="event.stopPropagation();window.__renameCanvas(\'' + t.id + '\')">&#9998;</span>'
-             + '<span class="ct-x" title="Bu tuvai (kok agaci) sil" onclick="event.stopPropagation();window.__deleteCanvas(\'' + t.id + '\')">&#10005;</span>'
-             + '</div>';
-        });
-        inner.innerHTML = s;
-        if (list.length >= 30) { if (nbtn) nbtn.classList.add('hidden'); } else { if (nbtn) nbtn.classList.remove('hidden'); }
-      }
-      window.__selectCanvas = function (id) {
-        canvasActiveTab = id;
-        try { localStorage.setItem(CANVAS_KEY, (id || '')); } catch (e2) {}
-        if (viewMode === 'canvas') { try { window.__fitCenter(); } catch (e3) { renderCanvas(); } }
-        else { renderOutline(); }
-        buildCanvasTabs();
-      };
-      window.__renameCanvas = function (id) {
-        const tree = (project.trees || []).find(t => t.id === id);
-        if (!tree) return;
-        window.__askText('Tuval adi (her tuval ayri bir calisma alanidir):', tree.name);
-        window.__ap_state.cb = { ok: function (nm) { if (nm && nm.trim()) { const old = tree.name; tree.name = nm.trim(); if (tree.rootNode && tree.rootNode.title) tree.rootNode.title = tree.name; saveProject(); try { recordActivity('updated', 'tree', id, old, 'Tuval adi degistirildi'); } catch (e2) {} currentRender(); buildCanvasTabs(); } } , cancel: null };
-      };
-      window.__deleteCanvas = function (id) {
-        const list = project.trees || [];
-        if (list.length <= 1) { alert('En az bir tuval (kok agac) kalmalidir.'); return; }
-        const tree = list.find(t => t.id === id);
-        if (!tree) return;
-        if (!window.confirm('"' + tree.name + '" tuvalini ve altindaki her seyi silmek istediginize emin misiniz?')) return;
-        if (window.deleteTree) window.deleteTree(id);
-        const still = project.trees || [];
-        const target = canvasActiveTab && still.some(t => t.id === canvasActiveTab) ? canvasActiveTab : (still[0] ? still[0].id : null);
-        canvasActiveTab = target;
-        try { localStorage.setItem(CANVAS_KEY, (target || '')); } catch (e3) {}
-      };
-      window.__newCanvas = function () {
-        if (!project || !Array.isArray(project.trees)) return;
-        var list = project.trees;
-        var maxY = 40, k, n;
-        for (k = 0; k < list.length; k++) if (list[k].y > maxY) maxY = list[k].y;
-        var names = [];
-        for (k = 0; k < list.length; k++) names.push(list[k].name);
-        n = 1;
-        while (names.indexOf('Tuval ' + n) >= 0) n++;
-        var fresh = {
-          id: 'tree_' + Date.now(),
-          name: 'Tuval ' + n,
-          x: Math.floor(Math.random() * 400) + 100,
-          y: maxY + 380,
-          color: 'emerald',
-          rootNode: { id: 'node_' + Date.now(), title: 'Tuval ' + n, subtitle: 'Ana Kategori', icon: 'folder', color: 'emerald', fields: [], tags: [], children: [] }
-        };
-        list.push(fresh);
-        saveProject();
-        try { recordActivity('created', 'tree', fresh.id, fresh.name, 'Yeni tuval olusturuldu'); } catch (emp) {}
-        canvasActiveTab = fresh.id;
-        try { localStorage.setItem(CANVAS_KEY, fresh.id); } catch (emp2) {}
-        if (viewMode === 'canvas') {
-          try { panX = 100 - fresh.x; panY = 120 - fresh.y; } catch (emp3) {}
-          renderCanvas();
-        } else {
-          renderOutline();
-        }
-      };
-
       // Layout Computation
       function computeLayouts() {
         const nodeLayouts = new Map();
 
-        for (const tree of getVisibleTrees()) {
+        for (const tree of project.trees) {
           const getSubtreeHeight = (node) => {
             const nodeH = estimateNodeHeight(node);
             if (!node.children || node.children.length === 0 || node.collapsed) {
@@ -2063,7 +1862,6 @@ window.handleLogin = function(event) {
         }
 
         const nodeLayouts = computeLayouts();
-        buildCanvasTabs();
         const svg = document.getElementById('canvas-svg');
         const treeHeadersLayer = document.getElementById('tree-headers-layer');
         const nodesLayer = document.getElementById('nodes-layer');
@@ -2076,7 +1874,7 @@ window.handleLogin = function(event) {
         document.getElementById('canvas-container').style.backgroundSize = `${24 * zoom}px ${24 * zoom}px`;
 
         // Render Tree Headers (Draggable handles with Actions)
-        treeHeadersLayer.innerHTML = getVisibleTrees().map(tree => {
+        treeHeadersLayer.innerHTML = project.trees.map(tree => {
           return `
             <div
               class="absolute select-none"
@@ -2389,7 +2187,6 @@ window.handleLogin = function(event) {
       // Render Outline with Full Actions & Relations
       function renderOutline() {
         const container = document.getElementById('outline-content');
-        buildCanvasTabs();
         if (!container) return;
 
         const renderOutlineNode = (node, isRoot = false) => {
@@ -2497,7 +2294,7 @@ window.handleLogin = function(event) {
           `;
         };
 
-        container.innerHTML = getVisibleTrees().map((tree, idx) => `
+        container.innerHTML = project.trees.map((tree, idx) => `
           <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
             <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
               <div class="flex items-center gap-2">
@@ -2552,18 +2349,22 @@ window.handleLogin = function(event) {
         };
 
         project.trees.push(newTree);
-        canvasActiveTab = newTree.id;
-        try { localStorage.setItem(CANVAS_KEY, newTree.id); } catch (e2) {}
         saveProject();
         recordActivity('created', 'tree', newTree.id, newTree.name, 'Yeni ağaç oluşturuldu');
         if (viewMode === 'canvas') renderCanvas(); else renderOutline();
       };
 
-      window.renameTree = function (treeId) {
+      window.renameTree = function(treeId) {
         const tree = project.trees.find(t => t.id === treeId);
         if (!tree) return;
-        window.__askText('Tuval/kok agac adi girin:', tree.name);
-        window.__ap_state.cb = { ok: function (nm) { if (nm && nm.trim()) { const oldName = tree.name; tree.name = nm.trim(); if (tree.rootNode && tree.rootNode.title) tree.rootNode.title = tree.name; saveProject(); try { recordActivity('updated', 'tree', tree.id, tree.name, 'Tuval/kok agac adi: ' + oldName + ' -> ' + tree.name); } catch (e2) {} if (viewMode === 'canvas') renderCanvas(); else renderOutline(); buildCanvasTabs(); } } , cancel: null };
+        const newName = prompt('Ağaç için yeni adı girin:', tree.name);
+        if (newName && newName.trim()) {
+          const oldName = tree.name;
+          tree.name = newName.trim();
+          saveProject();
+          recordActivity('updated', 'tree', tree.id, tree.name, `Ağaç adı: ${oldName} → ${tree.name}`);
+          if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+        }
       };
 
       window.deleteTree = function(treeId) {
@@ -3688,17 +3489,5 @@ relsListContainer.innerHTML = '<div class="text-slate-400 py-1.5 text-center bg-
       }
       })();
   </script>
-<!-- Inline isim giris penceresi (native prompt desteklenmeyince) -->
-<div id="arsh-prompt-wrap" >
-  <div id="arsh-prompt-box" role="dialog" aria-modal="true">
-    <div id="arsh-prompt-title">Bir metin girin</div>
-    <div id="arsh-prompt-hint"></div>
-    <input id="arsh-prompt-input" type="text" autocomplete="off" onkeydown="if(event.key==='Enter'){window.__apOk();} if(event.key==='Escape'){window.__apCancel();}" />
-    <div id="arsh-prompt-actions">
-      <button type="button" class="ap-cancel" onclick="window.__apCancel()">Vazgec</button>
-      <button type="button" class="ap-ok" onclick="window.__apOk()">Kaydet</button>
-    </div>
-  </div>
-</div>
 </body>
 </html>
