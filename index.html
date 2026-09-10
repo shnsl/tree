@@ -377,8 +377,8 @@
 
   <!-- Top Navigation Bar -->
   <!-- Ayrı Marka Başlık Çubuğu: uygulama ikonu her ekran/cesnet genisliginde tam ortada, yalniz kendi barinda -->
-  <div class="brand-bar w-full bg-white border-b border-slate-200 flex items-center justify-center py-1.5 px-4 transition-colors">
-    <span><img src="./icons/icon-192.png" alt="ARSH" class="w-12 h-12 rounded-lg object-cover" title="ARSH" /></span>
+    <div class="brand-bar w-full bg-white border-b border-slate-200 flex items-center justify-center py-1.5 px-4 transition-colors">
+    <span onclick="window.openNewWorkspace(event)" style="cursor:pointer;" title="Yeni bos calisma alani ac"><img src="./icons/icon-192.png" alt="ARSH" class="w-12 h-12 rounded-lg object-cover" title="Yeni bos calisma alani ac" /></span>
     &nbsp;
     &nbsp;
     &nbsp;
@@ -1716,10 +1716,17 @@ function listenForFirebaseProject() {
         }
       };
 
-      window.reloadAppView = function() {
+            window.reloadAppView = function() {
         updateStats();
         renderNotifications();
         if (viewMode === 'canvas') window.centerCanvas(0.25); else renderOutline();
+      };
+
+      // Ust bardaki ikona tiklaninca: mevcut tuval kapanir ve eski calismadan
+      // bagimsiz, tamamen bos bir html sayfasi (bos.html) ayni sekmede acilir.
+      window.openNewWorkspace = function(e) {
+        if (e) { try { e.preventDefault(); e.stopPropagation(); } catch (e2) {} }
+        try { window.location.assign('./bos.html'); } catch (err) { window.location.href = './bos.html'; }
       };
 window.handleLogin = function(event) {
         event.preventDefault();
