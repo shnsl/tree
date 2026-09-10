@@ -4,20 +4,42 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>ARSH</title>
+  <script src="./app-config.js"></script>
   <style>
+    :root {
+      --brand-font: 'Norwester';
+      --wp-bg: #ffffff;
+      --wp-bar-bg: #ffffff;
+      --wp-border: #e2e8f0;
+      --wp-text: #0f172a;
+    }
+    /* Koyu mod: index.html ile ayni degerler */
+    body.dark-mode {
+      --wp-bg: #0f172a;
+      --wp-bar-bg: #1e293b;
+      --wp-border: #334155;
+      --wp-text: #e2e8f0;
+    }
+
     * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; height: 100%; background: #ffffff; }
-    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #0f172a; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    body {
+      background: var(--wp-bg);
+      color: var(--wp-text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
 
     /* Ust marka cubugu (index.html ile ayni gorunum) */
     .brand-bar {
       width: 100%;
-      background: #ffffff;
-      border-bottom: 1px solid #e2e8f0;
+      background: var(--wp-bar-bg);
+      border-bottom: 1px solid var(--wp-border);
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 6px 16px;
+      transition: background-color 0.3s ease, border-color 0.3s ease;
     }
     .brand-bar img {
       width: 48px;
@@ -30,8 +52,10 @@
     .brand-bar .letter {
       font-size: 25px;
       font-weight: bold;
-      font-family: 'Norwester', system-ui, sans-serif;
+      font-family: var(--brand-font, 'Norwester'), system-ui, sans-serif;
+      color: var(--wp-text);
       display: inline-block;
+      transition: color 0.3s ease;
     }
     .brand-bar .letter.l1, .brand-bar .letter.l2, .brand-bar .letter.l3 { letter-spacing: 32px; }
     .brand-bar .letter.l4 { letter-spacing: 12px; }
@@ -39,6 +63,33 @@
     /* Bos calisma alani */
     .workspace { height: calc(100% - 62px); width: 100%; }
   </style>
+  <script>
+    // Marka fontunu (ARSH yazi tipi) ve temayi index.html ile ayni sekilde uygula.
+    (function () {
+      try {
+        var cfg = self.PWA_CONFIG || {};
+        var rs = document.documentElement.style;
+
+        // 1) Koyu / acik mod: ayni localStorage anahtari kullanilir.
+        var savedTheme = null;
+        try { savedTheme = localStorage.getItem('theme-preference'); } catch (e) {}
+        // index.html ile ayni mantik: 'light' acikca secilmediyse koyu mod.
+        if (savedTheme !== 'light') {
+          document.documentElement.classList.add('pre-dark');
+        }
+
+        // 2) Marka fontu: FONTS.BRAND -> ./fonts/<file>
+        var brand = (cfg.FONTS && cfg.FONTS.BRAND) || {};
+        if (cfg.BRAND_FONT) rs.setProperty('--brand-font', cfg.BRAND_FONT);
+        if (brand && brand.name && brand.file) {
+          var face = new FontFace(brand.name, 'url(./fonts/' + brand.file + ')', { weight: 'normal', style: 'normal', display: 'swap' });
+          document.fonts.add(face);
+          face.load().catch(function(){});
+          rs.setProperty('--brand-font', brand.name);
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <!-- Ayrı Marka Cubugu: ikon ve ARSH yazisi her ekranda ortada -->
@@ -53,5 +104,16 @@
 
   <!-- Bos bir uygulama alani: icerik yok, tamamen temiz -->
   <main class="workspace" aria-label="Bos calisma alani"></main>
+
+  <script>
+    // head'de <body> hazir olmadan class eklenemez; burada body'e uygula.
+    (function () {
+      try {
+        if (document.documentElement.classList.contains('pre-dark')) {
+          document.body.classList.add('dark-mode');
+        }
+      } catch (e) {}
+    })();
+  </script>
 </body>
 </html>
