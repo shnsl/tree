@@ -1,0 +1,2385 @@
+    (function() {
+      const firebaseConfig = {
+        apiKey: "AIzaSyDCq3E5DieTAZy0gB8xG1kdJPC3v2JZWSo",
+        authDomain: "evdeftr27.firebaseapp.com",
+        databaseURL: "https://evdeftr27-default-rtdb.firebaseio.com",
+        projectId: "evdeftr27",
+        storageBucket: "evdeftr27.appspot.com",
+        messagingSenderId: "51532098566",
+        appId: "1:51532098566:web:4b821a587080fd25ada787",
+        measurementId: "G-GXJ8K3ZQ9T"
+      };
+
+      let firebaseDatabase = null;
+      try {
+        firebase.initializeApp(firebaseConfig);
+        firebaseDatabase = firebase.database();
+      } catch (e) {
+        console.warn('Firebase başlatılamadı, yerel kayıt kullanılacak:', e);
+      }
+
+      // Load Initial Project State from embedded JSON or LocalStorage
+      const STORAGE_KEY = 'tree_editor_standalone_' + window.location.pathname;
+      const FIREBASE_PATH = 'projects/default';
+      const ACCESS_CODE_PATH = 'settings/accessCode';
+      const ACTIVITY_LOG_PATH = 'activityLog';
+      const DEFAULT_ACCESS_CODE = '222222';
+      let project = null;
+      let recentActivities = [];
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          project = JSON.parse(saved);
+        }
+      } catch (e) {
+        console.warn(e);
+      }
+
+      if (!project) {
+        try {
+          project = (window.__EMBEDDED_PROJECT_DATA) ? window.__EMBEDDED_PROJECT_DATA : JSON.parse(document.getElementById('project-data').textContent);
+        } catch (e) {
+          console.error("Proje verisi okunamadı:", e);
+          project = { projectName: "Hiyerarşik Ağaç", trees: [], relations: [] };
+        }
+      }
+
+      // App UI State
+      let viewMode = 'canvas';
+      let panX = 40;
+      let panY = 40;
+      let zoom = 1.0;
+      let searchQuery = '';
+      let searchMatches = [];
+      let activeSearchIndex = -1;
+      let isPanning = false;
+      let panStartX = 0;
+      let panStartY = 0;
+      let selectedNodeId = null;
+
+      // Canvas Size (default 10000x10000)
+      let canvasWidth = 10000;
+      let canvasHeight = 10000;
+
+      // Cross-Tree Relation Engine State
+      let relationConnectingSourceId = null;
+      let mouseCanvasX = 0;
+      let mouseCanvasY = 0;
+      let selectedRelColor = '#8b5cf6';
+
+      const RELATION_COLORS = [
+        { name: 'Mor', hex: '#8b5cf6' },
+        { name: 'Mavi', hex: '#3b82f6' },
+        { name: 'Zümrüt', hex: '#10b981' },
+        { name: 'Amber', hex: '#f59e0b' },
+        { name: 'Gül', hex: '#f43f5e' },
+        { name: 'İndigo', hex: '#6366f1' },
+        { name: 'Teal', hex: '#14b8a6' },
+        { name: 'Turuncu', hex: '#f97316' },
+        { name: 'Gri', hex: '#64748b' }
+      ];
+
+      // Drag Tree State
+      let activeTreeDrag = null;
+
+      // Layout constants
+      const CARD_WIDTH = 260;
+      const HORIZONTAL_SPACING = 56;
+      const VERTICAL_GAP = 20;
+
+      const COLOR_PALETTE = {
+        emerald: { border: '#10b981', headerBg: '#ecfdf5', headerText: '#065f46', accent: '#059669', badgeBg: '#d1fae5', badgeText: '#065f46' },
+        blue: { border: '#3b82f6', headerBg: '#eff6ff', headerText: '#1e40af', accent: '#2563eb', badgeBg: '#dbeafe', badgeText: '#1e40af' },
+        violet: { border: '#8b5cf6', headerBg: '#f5f3ff', headerText: '#5b21b6', accent: '#7c3aed', badgeBg: '#ede9fe', badgeText: '#5b21b6' },
+        amber: { border: '#f59e0b', headerBg: '#fffbeb', headerText: '#92400e', accent: '#d97706', badgeBg: '#fef3c7', badgeText: '#92400e' },
+        rose: { border: '#f43f5e', headerBg: '#fff1f2', headerText: '#9f1239', accent: '#e11d48', badgeBg: '#ffe4e6', badgeText: '#9f1239' },
+        indigo: { border: '#6366f1', headerBg: '#eef2ff', headerText: '#3730a3', accent: '#4f46e5', badgeBg: '#e0e7ff', badgeText: '#3730a3' },
+        teal: { border: '#14b8a6', headerBg: '#f0fdfa', headerText: '#115e59', accent: '#0d9488', badgeBg: '#ccfbf1', badgeText: '#115e59' },
+        orange: { border: '#f97316', headerBg: '#fff7ed', headerText: '#9a3412', accent: '#ea580c', badgeBg: '#ffedd5', badgeText: '#9a3412' },
+        slate: { border: '#64748b', headerBg: '#f8fafc', headerText: '#1e293b', accent: '#475569', badgeBg: '#f1f5f9', badgeText: '#334155' }
+      };
+
+      const ICON_EMOJIS = {
+        folder: '📁',
+        box: '📦',
+        car: '🚗',
+        tractor: '🚜',
+        shield: '🛡️',
+        calendar: '📅',
+        wrench: '🔧',
+        building: '🏢',
+        dollar: '💵',
+        'dollar-sign': '💵',
+        tag: '🏷️',
+        file: '📄',
+        user: '👤',
+        users: '👥',
+        database: '🗄️',
+        layers: '🥞',
+        activity: '📈',
+        check: '✅',
+        sparkles: '✨'
+      };
+
+      // ---- Ayar sabitleri (app-config.js'ten okunur; degerleri oradan degistirin) ----
+      const CFG = window.PWA_CONFIG || {};
+      const CARD_MAX_FIELDS = (CFG.CARD && typeof CFG.CARD.maxVisibleFields === 'number') ? CFG.CARD.maxVisibleFields : 6;
+      const FIELD_HINT_AT = (CFG.CARD && typeof CFG.CARD.fieldHintAt === 'number') ? CFG.CARD.fieldHintAt : 3;
+      const FIELD_ROW_H = (CFG.CARD && typeof CFG.CARD.fieldRowHeight === 'number') ? CFG.CARD.fieldRowHeight : 22;
+      const RECENT_LIMIT = (typeof CFG.RECENT_ACTIVITIES_LIMIT === 'number') ? CFG.RECENT_ACTIVITIES_LIMIT : 50;
+      const NOTIF_DAYS = (CFG.NOTIFICATIONS && typeof CFG.NOTIFICATIONS.windowDays === 'number') ? CFG.NOTIFICATIONS.windowDays : 30;
+      const NOTIF_MAX_RESULTS = (CFG.NOTIFICATIONS && typeof CFG.NOTIFICATIONS.maxResults === 'number') ? CFG.NOTIFICATIONS.maxResults : 100;
+      const ICON_MAP = (CFG.ICONS && typeof CFG.ICONS === 'object') ? CFG.ICONS : ICON_EMOJIS;
+
+      function getIconEmoji(name) {
+        if (!name) return '📦';
+        return ICON_MAP[name.toLowerCase()] || '📦';
+      }
+
+      function estimateNodeHeight(node) {
+        let h = 88;
+        if (node.description) h += 24;
+        if (node.tags && node.tags.length > 0) h += 26;
+        if (node.fields && node.fields.length > 0) {
+          const visibleCount = Math.min(node.fields.length, CARD_MAX_FIELDS);
+          h += 12 + visibleCount * FIELD_ROW_H;
+        }
+        return h;
+      }
+
+      function getAllProjectNodes() {
+        const list = [];
+        if (!project.trees) return list;
+        for (const tree of project.trees) {
+          const scan = (n) => {
+            list.push({ node: n, tree, treeName: tree.name, label: '[' + tree.name + '] ' + n.title });
+            if (n.children) n.children.forEach(scan);
+          };
+          scan(tree.rootNode);
+        }
+        return list;
+      }
+
+      function parseDateValue(value) {
+        const text = String(value || '').trim();
+        let match = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+        if (!match) match = text.match(/^(\d{1,2})[-./](\d{1,2})[-./](\d{4})/);
+        if (!match) return null;
+
+        const year = match[1].length === 4 ? Number(match[1]) : Number(match[3]);
+        const month = match[1].length === 4 ? Number(match[2]) : Number(match[2]);
+        const day = match[1].length === 4 ? Number(match[3]) : Number(match[1]);
+        const date = new Date(year, month - 1, day);
+        return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
+      }
+
+      function getNodePath(item) {
+        const parts = [item.node.title];
+        let current = findNodeInTree(project.trees, item.node.id);
+        let guard = 0;
+        while (current && current.parent && guard < 100) {
+          parts.unshift(current.parent.title);
+          current = findNodeInTree(project.trees, current.parent.id);
+          guard++;
+        }
+        return parts;
+      }
+
+      function getDateNotifications() {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const notifications = [];
+        getAllProjectNodes().forEach(item => {
+          (item.node.fields || []).forEach(field => {
+            const key = String(field.key || '').toLocaleLowerCase('tr-TR');
+            if (!/(bitiş|bitis|son tarih|son bakım|son bakim|muayene|vade|geçerlilik|gecerlilik)/.test(key)) return;
+            const date = parseDateValue(field.value);
+            if (!date) return;
+            const daysRemaining = Math.round((date - today) / 86400000);
+            if (daysRemaining > NOTIF_DAYS) return;
+            notifications.push({
+              nodeId: item.node.id,
+              nodeTitle: item.node.title,
+              treeName: item.treeName,
+              fieldKey: field.key,
+              fieldValue: field.value,
+              daysRemaining, path: getNodePath(item)
+            });
+          });
+        });
+        return notifications.sort((a, b) => a.daysRemaining - b.daysRemaining).slice(0, NOTIF_MAX_RESULTS);
+      }
+
+      function updateNotificationCount() {
+        const countElement = document.getElementById('notification-count');
+        if (countElement) countElement.textContent = String(getDateNotifications().length);
+      }
+
+      function getNotificationStatus(daysRemaining) {
+        if (daysRemaining < 0) return { text: `${Math.abs(daysRemaining)} gün geçti`, color: 'text-rose-700 bg-rose-50 border-rose-200' };
+        if (daysRemaining === 0) return { text: 'Bugün', color: 'text-rose-700 bg-rose-50 border-rose-200' };
+        if (daysRemaining <= 7) return { text: `${daysRemaining} gün kaldı`, color: 'text-amber-800 bg-amber-50 border-amber-200' };
+        return { text: `${daysRemaining} gün kaldı`, color: 'text-blue-700 bg-blue-50 border-blue-200' };
+      }
+
+      function renderNotifications() {
+        const list = document.getElementById('notifications-list');
+        const notifications = getDateNotifications();
+        updateNotificationCount();
+        if (!list) return;
+        if (notifications.length === 0) {
+          list.innerHTML = `<div class="text-center text-emerald-700 text-xs py-8 bg-emerald-50 rounded-xl border border-emerald-200">Önümüzdeki ${NOTIF_DAYS} gün içinde yaklaşan veya geçmiş tarih bulunmuyor.</div>`;
+          return;
+        }
+        list.innerHTML = notifications.map(notification => {
+          const status = getNotificationStatus(notification.daysRemaining);
+          return `
+            <div class="flex items-center gap-3 p-3 rounded-xl border bg-slate-50/70 ${status.color.split(' ').find(color => color.startsWith('border-'))}">
+              <span class="shrink-0 px-2 py-1 rounded-lg border text-[10px] font-bold ${status.color}">${status.text}</span>
+              <div class="min-w-0 flex-1">
+                <div class="text-xs font-bold text-slate-800 truncate">${escapeHtml(notification.nodeTitle)}</div>
+                <div class="text-[11px] font-semibold text-emerald-700 mt-0.5 truncate">${notification.path && notification.path.length > 1 ? '\u{1F4C1} ' + notification.path.join('  ') : ''}</div>
+                <div class="text-[11px] text-slate-500 truncate">${escapeHtml(notification.fieldKey)}: ${escapeHtml(notification.fieldValue)} · ${escapeHtml(notification.treeName)}</div>
+              </div>
+              <button type="button" onclick="openNotificationNode('${notification.nodeId}')" class="p-1.5 rounded-lg text-slate-600 hover:bg-white hover:text-rose-700" title="Kartı düzenle">✏️</button>
+            </div>
+          `;
+        }).join('');
+      }
+
+      window.openNotificationsModal = function() {
+        renderNotifications();
+        document.getElementById('notifications-modal').classList.remove('hidden');
+      };
+
+      window.closeNotificationsModal = function() {
+        document.getElementById('notifications-modal').classList.add('hidden');
+      };
+
+      window.openNotificationNode = function(nodeId) {
+        closeNotificationsModal();
+        window.openEditModal(nodeId);
+      };
+
+      function revealNode(nodeId, nodes = project.trees) {
+        for (const tree of nodes) {
+          const reveal = (node) => {
+            if (node.id === nodeId) return true;
+            if (node.children && node.children.some(reveal)) {
+              node.collapsed = false;
+              return true;
+            }
+            return false;
+          };
+          if (reveal(tree.rootNode)) return true;
+        }
+        return false;
+      }
+
+      function updateSearchControls() {
+        const badge = document.getElementById('search-count-badge');
+        const prevButton = document.getElementById('search-prev-button');
+        const nextButton = document.getElementById('search-next-button');
+        const hasResults = searchMatches.length > 0;
+        if (badge) {
+          if (!searchQuery) {
+            badge.classList.add('hidden');
+          } else {
+            badge.classList.remove('hidden');
+            badge.className = `absolute right-[4.5rem] text-[11px] font-bold px-1.5 py-0.5 rounded-full select-none ${hasResults ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-rose-100 text-rose-800 border border-rose-200'}`;
+            badge.textContent = hasResults ? `${activeSearchIndex + 1}/${searchMatches.length}` : 'Yok';
+          }
+        }
+        if (prevButton) prevButton.disabled = !hasResults;
+        if (nextButton) nextButton.disabled = !hasResults;
+      }
+
+      function focusSearchMatch(index) {
+        if (!searchMatches.length) return;
+        activeSearchIndex = (index + searchMatches.length) % searchMatches.length;
+        const match = searchMatches[activeSearchIndex];
+        revealNode(match.node.id);
+        selectedNodeId = match.node.id;
+
+        if (viewMode === 'canvas') {
+          renderCanvas();
+          const layout = computeLayouts().get(match.node.id);
+          if (layout) {
+            const rect = document.getElementById('canvas-container').getBoundingClientRect();
+            panX = Math.round(rect.width / 2 - (layout.x + layout.width / 2) * zoom);
+            panY = Math.round(rect.height / 2 - (layout.y + layout.height / 2) * zoom);
+            renderCanvas();
+          }
+        } else {
+          renderOutline();
+          setTimeout(() => {
+            const element = document.getElementById('outline-node-' + match.node.id);
+            if (element) element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 0);
+        }
+        updateSearchControls();
+      }
+
+      // Save to localStorage
+      function saveProject() {
+        try {
+          if (!project.relations) project.relations = [];
+          project.lastModified = new Date().toISOString();
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(project));
+          if (firebaseDatabase) {
+            firebaseDatabase.ref(FIREBASE_PATH).set(project).catch((error) => {
+              console.warn('Firebase kaydı başarısız, yerel kayıt korunuyor:', error);
+            });
+          }
+          updateStats();
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      // ---- PWA Surum & Otomatik Guncelleme ----
+      // NOT: Bu deger, service-worker.js icindeki APP_VERSION ile AYNI olmalidir.
+      // Her isim/icerik degisikliginde ikisini birlikte artirin (or. v1 -> v2).
+      const APP_VERSION = (window.PWA_CONFIG && window.PWA_CONFIG.VERSION) ? window.PWA_CONFIG.VERSION : '1';
+
+            function renderVersionText() {
+        const el = document.getElementById('app-version-text');
+        if (el) el.textContent = 'v' + APP_VERSION + ' / Guncellendi';
+      }
+
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('./service-worker.js?v=' + APP_VERSION)
+            .then(function(reg) {
+              renderVersionText();
+              // Yeni surum geldiginde sayfayi otomatik yenile (sert F5 gerekmesin)
+              var refreshing = false;
+              navigator.serviceWorker.addEventListener('controllerchange', function() {
+                if (refreshing) return;
+                refreshing = true;
+                window.location.reload();
+              });
+              // Bekleyen yeni worker varsa hemen aktiflestir
+              if (reg.waiting) {
+                reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+              }
+              // Kurulumda yeni worker bulunursa da aktiflestir
+              reg.addEventListener('updatefound', function() {
+                var newWorker = reg.installing;
+                if (newWorker) {
+                  newWorker.addEventListener('statechange', function() {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                      newWorker.postMessage({ type: 'SKIP_WAITING' });
+                    }
+                  });
+                }
+              });
+              // Her acilista en guncel sürüm kontrolunu zorla
+              try { reg.update(); } catch (e) {}
+            })
+            .catch(function(error) {
+              console.warn('Service worker kaydi basarisiz:', error);
+            });
+        });
+      }
+function listenForFirebaseProject() {
+        if (!firebaseDatabase) return;
+        firebaseDatabase.ref(FIREBASE_PATH).on('value', (snapshot) => {
+          const remoteProject = snapshot.val();
+          if (!remoteProject || remoteProject.lastModified === project.lastModified) return;
+          project = remoteProject;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(project));
+          updateStats();
+          if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+        }, (error) => {
+          console.warn('Firebase verisi okunamadı, yerel kayıt kullanılacak:', error);
+        });
+      }
+
+      function getActivityDate(timestamp) {
+        return new Intl.DateTimeFormat('tr-TR', {
+          day: '2-digit', month: '2-digit', year: 'numeric',
+          hour: '2-digit', minute: '2-digit', second: '2-digit'
+        }).format(new Date(timestamp));
+      }
+
+      function recordActivity(action, entityType, entityId, entityName, details = '') {
+        if (!firebaseDatabase) return;
+        const timestamp = new Date().toISOString();
+        firebaseDatabase.ref(ACTIVITY_LOG_PATH).push({
+          action,
+          entityType,
+          entityId,
+          entityName,
+          details,
+          timestamp,
+          timestampMs: Date.now(),
+          timestampDisplay: getActivityDate(timestamp)
+        })
+          .then(() => firebaseDatabase.ref(ACTIVITY_LOG_PATH).once('value'))
+          .then((snap) => {
+            const records = snap.val() || {};
+            const ids = Object.keys(records).sort((ia, ib) =>
+              (records[ib].timestampMs || 0) - (records[ia].timestampMs || 0)
+            );
+            const excess = ids.slice(RECENT_LIMIT);
+            if (excess.length) {
+              const updates = {};
+              excess.forEach((id) => { updates[id] = null; });
+              return firebaseDatabase.ref(ACTIVITY_LOG_PATH).update(updates);
+            }
+          }).catch((error) => {
+          console.warn('İşlem geçmişi kaydedilemedi:', error);
+        });
+      }
+
+      function listenForRecentActivities() {
+        if (!firebaseDatabase) return;
+        firebaseDatabase.ref(ACTIVITY_LOG_PATH).on('value', (snapshot) => {
+          const values = snapshot.val() || {};
+          recentActivities = Object.entries(values)
+            .map(([id, activity]) => ({ id, ...activity }))
+            .sort((a, b) => (b.timestampMs || Date.parse(b.timestamp) || 0) - (a.timestampMs || Date.parse(a.timestamp) || 0))
+            .slice(0, RECENT_LIMIT);
+          renderRecentActivities();
+        }, (error) => {
+          console.warn('İşlem geçmişi okunamadı:', error);
+        });
+      }
+
+      function findActivityEntity(activity) {
+        if (activity.entityType === 'relation') {
+          return (project.relations || []).find(relation => relation.id === activity.entityId) || null;
+        }
+        if (activity.entityType === 'tree') {
+          return project.trees.find(tree => tree.id === activity.entityId) || null;
+        }
+        if (activity.entityType === 'node') {
+          const match = findNodeInTree(project.trees, activity.entityId);
+          return match ? match.node : null;
+        }
+        return null;
+      }
+
+      function getActivityActionLabel(action) {
+        return { created: 'Eklendi', updated: 'Düzeltildi', deleted: 'Silindi', imported: 'İçe aktarıldı' }[action] || action;
+      }
+
+      function renderRecentActivities() {
+        const list = document.getElementById('recent-actions-list');
+        if (!list) return;
+        if (recentActivities.length === 0) {
+          list.innerHTML = '<div class="text-center text-slate-400 text-xs py-8">Henüz işlem kaydı yok.</div>';
+          return;
+        }
+
+        list.innerHTML = recentActivities.map(activity => {
+          const entityExists = Boolean(findActivityEntity(activity));
+          const canEdit = entityExists && activity.action !== 'deleted' && ['node', 'tree', 'relation'].includes(activity.entityType);
+          const canDelete = entityExists && activity.action !== 'deleted' && ['node', 'tree', 'relation'].includes(activity.entityType);
+          const actionColor = activity.action === 'deleted' ? 'text-rose-600 bg-rose-50' : activity.action === 'created' ? 'text-emerald-700 bg-emerald-50' : 'text-cyan-700 bg-cyan-50';
+          return `
+            <div class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/70">
+              <span class="shrink-0 px-2 py-1 rounded-lg text-[10px] font-bold ${actionColor}">${escapeHtml(getActivityActionLabel(activity.action))}</span>
+              <div class="min-w-0 flex-1">
+                <div class="text-xs font-bold text-slate-800 truncate">${escapeHtml(activity.entityName || 'İsimsiz kayıt')}</div>
+                <div class="text-[11px] text-slate-500 truncate">${escapeHtml(activity.details || activity.entityType || '')}</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">${escapeHtml(activity.timestampDisplay || getActivityDate(activity.timestamp))}</div>
+              </div>
+              <div class="flex items-center gap-1 shrink-0">
+                ${canEdit ? `<button type="button" onclick="editRecentActivity('${activity.id}')" class="p-1.5 rounded-lg text-slate-600 hover:bg-white hover:text-cyan-700" title="İşlemi düzelt">✏️</button>` : ''}
+                ${canDelete ? `<button type="button" onclick="deleteRecentActivity('${activity.id}')" class="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50" title="Kaydı sil">🗑️</button>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      window.openRecentActionsModal = function() {
+        renderRecentActivities();
+        document.getElementById('recent-actions-modal').classList.remove('hidden');
+      };
+
+      window.closeRecentActionsModal = function() {
+        document.getElementById('recent-actions-modal').classList.add('hidden');
+      };
+
+      window.editRecentActivity = function(activityId) {
+        const activity = recentActivities.find(item => item.id === activityId);
+        if (!activity || activity.action === 'deleted') return;
+        if (activity.entityType === 'node') window.openEditModal(activity.entityId);
+        if (activity.entityType === 'tree') window.renameTree(activity.entityId);
+        if (activity.entityType === 'relation') window.openEditRelationModal(activity.entityId);
+      };
+
+      window.deleteRecentActivity = function(activityId) {
+        const activity = recentActivities.find(item => item.id === activityId);
+        if (!activity || activity.action === 'deleted' || !findActivityEntity(activity)) return;
+        if (!confirm(`"${activity.entityName}" kaydını silmek istediğinize emin misiniz?`)) return;
+        if (activity.entityType === 'node') window.deleteNode(activity.entityId);
+        if (activity.entityType === 'tree') window.deleteTree(activity.entityId);
+        if (activity.entityType === 'relation') window.deleteRelation(activity.entityId);
+      };
+
+            // Giris basarili oldugunda uygulamayi ac; oturum (sessionStorage) kalici oldugu icin
+      // sayfa yenilense bile dogrudan ana ekran acilir.
+      // Tuvali verilen zoom ile ortalar: zoom + pan'i icerik ortasina hizalar.
+      window.centerCanvas = function(zoomValue) {
+        zoom = zoomValue;
+        try {
+          const layouts = computeLayouts();
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          layouts.forEach(function(l) {
+            minX = Math.min(minX, l.x);
+            minY = Math.min(minY, l.y);
+            maxX = Math.max(maxX, l.x + l.width);
+            maxY = Math.max(maxY, l.y + l.height);
+          });
+          if (isFinite(minX) && isFinite(maxX)) {
+            const cX = (minX + maxX) / 2;
+            const cY = (minY + maxY) / 2;
+            const rect = document.getElementById('canvas-container').getBoundingClientRect();
+            panX = Math.round(rect.width / 2 - cX * zoom);
+            panY = Math.round(rect.height / 2 - cY * zoom);
+          }
+        } catch (e) {}
+        const zt = document.getElementById('zoom-text');
+        if (zt) zt.textContent = Math.round(zoom * 100) + '%';
+        renderCanvas();
+      };
+
+      window.enterApp = function() {
+        document.body.classList.remove('auth-locked');
+        var loginEl = document.getElementById('login-screen');
+        if (loginEl) loginEl.remove();
+        updateStats();
+        if (viewMode === 'canvas') window.centerCanvas(0.25); else renderOutline();
+        listenForFirebaseProject();
+        listenForRecentActivities();
+      };      let dragEnabled = false;
+
+      window.toggleDragMode = function() {
+        dragEnabled = !dragEnabled;
+        const icon = document.getElementById('drag-toggle-icon');
+        const text = document.getElementById('drag-toggle-text');
+        const btn = document.getElementById('drag-toggle-btn');
+        if (icon) icon.innerHTML = dragEnabled ? '&#128275;' : '&#128274;';
+        if (text) text.textContent = dragEnabled ? 'Sürüklemeyi Kapat' : 'Sürüklemeyi Aç';
+        if (btn) {
+          if (dragEnabled) {
+            btn.className = 'flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition shadow-xs';
+            btn.title = 'Kartları ve ağaçları sürüklemeyi kapat';
+          } else {
+            btn.className = 'flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition shadow-xs';
+            btn.title = 'Kartları ve ağaçları sürüklemeyi aç';
+          }
+        }
+        try { if (viewMode === 'canvas') renderCanvas(); else renderOutline(); } catch (e) {}
+      };
+
+      var logoutPressCount = 0;
+      var logoutLastPress = 0;
+      window.logoutAndLock = function() {
+        var now = Date.now();
+        // Son basistan 1200ms'den fazla gectiyse sayaci sifirla (basilari grupla).
+        if (now - logoutLastPress > 1200) {
+          logoutPressCount = 0;
+        }
+        logoutLastPress = now;
+        logoutPressCount++;
+        if (logoutPressCount >= 3) {
+          // 3. kisa aralikli basista cikis yap.
+          try { sessionStorage.removeItem('arhsAuthenticated'); } catch (e) {}
+          window.location.reload();
+        } else {
+          // Arayuzde ilerlemeyi goster: Cikis Yap (1/3), (2/3) ...
+          var txt = document.getElementById('logout-text');
+          if (txt) txt.textContent = 'Çıkış Yap (' + logoutPressCount + '/3)';
+          setTimeout(function() {
+            var el = document.getElementById('logout-text');
+            if (el && el.textContent.indexOf('/3)') !== -1) {
+              el.textContent = 'Çıkış Yap';
+            }
+          }, 1500);
+        }
+      };
+
+            window.reloadAppView = function() {
+        updateStats();
+        renderNotifications();
+        if (viewMode === 'canvas') window.centerCanvas(0.25); else renderOutline();
+      };
+
+      // Ust bardaki ikona tiklaninca: mevcut tuval kapanir ve eski calismadan
+      // bagimsiz, tamamen bos bir html sayfasi (bos.html) ayni sekmede acilir.
+      window.openNewWorkspace = function(e) {
+        if (e) { try { e.preventDefault(); e.stopPropagation(); } catch (e2) {} }
+        try { window.location.assign('./bos.html'); } catch (err) { window.location.href = './bos.html'; }
+      };
+window.handleLogin = function(event) {
+        event.preventDefault();
+        const input = document.getElementById('access-code-input');
+        const button = document.getElementById('login-button');
+        const status = document.getElementById('login-status');
+        const enteredCode = input.value;
+
+        if (!enteredCode) {
+          status.textContent = 'Şifre girin.';
+          input.focus();
+          return;
+        }
+        if (!firebaseDatabase) {
+          status.textContent = 'Firebase bağlantısı kurulamadı.';
+          return;
+        }
+
+        button.disabled = true;
+        button.textContent = 'Kontrol ediliyor...';
+        status.textContent = '';
+
+        const accessCodeRef = firebaseDatabase.ref(ACCESS_CODE_PATH);
+        const timeout = new Promise((resolve, reject) => {
+          setTimeout(() => reject(new Error('timeout')), 10000);
+        });
+        Promise.race([accessCodeRef.once('value'), timeout])
+          .then((snapshot) => {
+            if (snapshot.val() === null) {
+              return accessCodeRef.set(DEFAULT_ACCESS_CODE).then(() => DEFAULT_ACCESS_CODE);
+            }
+            return String(snapshot.val());
+          })
+          .then((storedCode) => {
+            if (storedCode !== enteredCode) {
+              throw new Error('invalid-code');
+            }
+            try { sessionStorage.setItem('arhsAuthenticated', '1'); } catch (e) {}
+            window.enterApp();
+          })
+          .catch((error) => {
+            status.textContent = error.message === 'invalid-code'
+              ? 'Şifre hatalı.'
+              : error.message === 'timeout'
+                ? 'Firebase bağlantısı zaman aşımına uğradı.'
+                : 'Şifre Firebase üzerinden doğrulanamadı.';
+            input.select();
+          })
+          .finally(() => {
+            button.disabled = false;
+            button.textContent = 'Giriş Yap';
+          });
+      };
+
+      function updateStats() {
+        if (!project.relations) project.relations = [];
+        let totalNodes = 0;
+        const count = (n) => {
+          totalNodes++;
+          if (n.children) n.children.forEach(count);
+        };
+        project.trees.forEach(t => count(t.rootNode));
+
+        const statsEl = document.getElementById('header-stats');
+        if (statsEl) {
+          statsEl.innerHTML = `Toplam ${project.trees.length} Kök Ağaç &bull; ${totalNodes} Düğüm &bull; ${project.relations.length} Çapraz İlişki`;
+        }
+
+        const headerRelCount = document.getElementById('header-rel-count');
+        if (headerRelCount) {
+          headerRelCount.textContent = String(project.relations.length);
+        }
+        renderNotifications();
+      }
+
+      // Layout Computation
+      function computeLayouts() {
+        const nodeLayouts = new Map();
+
+        for (const tree of project.trees) {
+          const getSubtreeHeight = (node) => {
+            const nodeH = estimateNodeHeight(node);
+            if (!node.children || node.children.length === 0 || node.collapsed) {
+              return nodeH;
+            }
+            let totalChildH = 0;
+            for (let i = 0; i < node.children.length; i++) {
+              totalChildH += getSubtreeHeight(node.children[i]);
+              if (i < node.children.length - 1) {
+                totalChildH += VERTICAL_GAP;
+              }
+            }
+            return Math.max(nodeH, totalChildH);
+          };
+
+          const placeNode = (node, depth, startX, startY, parentId) => {
+            const nodeH = estimateNodeHeight(node);
+            const subtreeH = getSubtreeHeight(node);
+            const nodeY = startY + (subtreeH - nodeH) / 2 + (node.offsetY || 0);
+            const nodeX = startX + (node.offsetX || 0);
+
+            nodeLayouts.set(node.id, {
+              id: node.id,
+              node,
+              treeId: tree.id,
+              x: nodeX,
+              y: nodeY,
+              width: CARD_WIDTH,
+              height: nodeH,
+              depth,
+              parentId,
+              hasChildren: Boolean(node.children && node.children.length > 0),
+              isCollapsed: Boolean(node.collapsed)
+            });
+
+            if (!node.collapsed && node.children && node.children.length > 0) {
+              let childStartY = startY + (node.offsetY || 0);
+              const childStartX = startX + CARD_WIDTH + HORIZONTAL_SPACING + (node.offsetX || 0);
+              for (const child of node.children) {
+                const childH = getSubtreeHeight(child);
+                placeNode(child, depth + 1, childStartX, childStartY, node.id);
+                childStartY += childH + VERTICAL_GAP;
+              }
+            }
+          };
+
+          placeNode(tree.rootNode, 0, tree.x, tree.y, null);
+        }
+
+        return nodeLayouts;
+      }
+
+      // Render Canvas
+      function renderCanvas() {
+        // Update canvas stage size
+        const stage = document.getElementById('canvas-stage');
+        if (stage) {
+          stage.style.width = canvasWidth + 'px';
+          stage.style.height = canvasHeight + 'px';
+        }
+
+        const nodeLayouts = computeLayouts();
+        const svg = document.getElementById('canvas-svg');
+        const treeHeadersLayer = document.getElementById('tree-headers-layer');
+        const nodesLayer = document.getElementById('nodes-layer');
+
+        if (!stage || !svg || !treeHeadersLayer || !nodesLayer) return;
+
+        // Apply Transform
+        stage.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})`;
+        document.getElementById('canvas-container').style.backgroundPosition = `${panX}px ${panY}px`;
+        document.getElementById('canvas-container').style.backgroundSize = `${24 * zoom}px ${24 * zoom}px`;
+
+        // Render Tree Headers (Draggable handles with Actions)
+        treeHeadersLayer.innerHTML = project.trees.map(tree => {
+          return `
+            <div
+              class="absolute select-none"
+              style="left: ${tree.x}px; top: ${tree.y - 48}px;"
+              data-tree-id="${tree.id}"
+            >
+              <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-md border border-slate-700">
+                <div class="flex items-center gap-1.5 ${dragEnabled ? 'cursor-move' : 'cursor-default'}" onmousedown="window.startTreeDrag(event, '${tree.id}')" ontouchstart="window.startTouchDrag(event, null, '${tree.id}')" title="Ağacı Taşımak İçin Sürükleyin">
+                  <span class="text-emerald-400">✥</span>
+                  <span>${escapeHtml(tree.name)}</span>
+                </div>
+                <div class="flex items-center gap-1 ml-2 border-l border-slate-700 pl-2">
+                  <button onclick="window.addChildNode('${tree.rootNode.id}')" class="p-1 hover:bg-slate-800 rounded text-emerald-400 hover:text-emerald-300 transition" title="Kök Düğüme Alt Dal Ekle">➕</button>
+                  <button onclick="window.renameTree('${tree.id}')" class="p-1 hover:bg-slate-800 rounded text-slate-300 hover:text-white transition" title="Ağaç Başlığını Yeniden Adlandır">✏️</button>
+                  <button onclick="window.deleteTree('${tree.id}')" class="p-1 hover:bg-rose-950 rounded text-rose-400 hover:text-rose-300 transition" title="Tüm Ağacı Sil">🗑️</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        // Render SVG Connections
+        let svgPaths = '';
+
+        // Hierarchical tree connections
+        nodeLayouts.forEach(layout => {
+          if (layout.parentId && nodeLayouts.has(layout.parentId)) {
+            const parent = nodeLayouts.get(layout.parentId);
+            const startX = parent.x + parent.width;
+            const startY = parent.y + parent.height / 2;
+            const endX = layout.x;
+            const endY = layout.y + layout.height / 2;
+
+            const deltaX = Math.max(30, (endX - startX) * 0.5);
+            const pathData = `M ${startX} ${startY} C ${startX + deltaX} ${startY}, ${endX - deltaX} ${endY}, ${endX} ${endY}`;
+
+            svgPaths += `
+              <g>
+                <path d="${pathData}" fill="none" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round" />
+                <circle cx="${endX}" cy="${endY}" r="3" fill="#94a3b8" />
+              </g>
+            `;
+          }
+        });
+
+        // Cross-Tree Relations
+        project.relations.forEach(rel => {
+          const source = nodeLayouts.get(rel.sourceNodeId);
+          const target = nodeLayouts.get(rel.targetNodeId);
+          if (!source || !target) return;
+
+          const startX = source.x + source.width;
+          const startY = source.y + source.height / 2;
+          const isTargetOnLeft = target.x < source.x;
+          const endX = isTargetOnLeft ? target.x + target.width : target.x;
+          const endY = target.y + target.height / 2;
+
+          const dx = Math.abs(endX - startX);
+          const curveOffset = Math.max(60, dx * 0.4);
+
+          let pathData = '';
+          if (isTargetOnLeft) {
+            pathData = `M ${startX} ${startY} C ${startX + curveOffset} ${startY - 40}, ${endX + curveOffset} ${endY - 40}, ${endX} ${endY}`;
+          } else {
+            pathData = `M ${startX} ${startY} C ${startX + curveOffset} ${startY}, ${endX - curveOffset} ${endY}, ${endX} ${endY}`;
+          }
+
+          const midX = (startX + endX) / 2;
+          const midY = (startY + endY) / 2;
+          const color = rel.color || '#8b5cf6';
+          const dash = rel.style === 'dashed' ? '6,4' : rel.style === 'dotted' ? '2,3' : '';
+
+          svgPaths += `
+            <g class="cursor-pointer group/rel">
+              <path d="${pathData}" fill="none" stroke="transparent" stroke-width="16" class="pointer-events-auto" onclick="window.openEditRelationModal('${rel.id}')" />
+              <path d="${pathData}" fill="none" stroke="${color}" stroke-width="2.5" stroke-dasharray="${dash}" stroke-linecap="round" class="pointer-events-auto group-hover/rel:stroke-violet-700 group-hover/rel:stroke-[3.5px] transition-all" onclick="window.openEditRelationModal('${rel.id}')" />
+              <circle cx="${endX}" cy="${endY}" r="4" fill="${color}" />
+              <foreignObject x="${midX - 85}" y="${midY - 14}" width="170" height="30" class="overflow-visible pointer-events-auto">
+                <div class="flex items-center justify-center">
+                  <span onclick="window.openEditRelationModal('${rel.id}')" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold shadow-sm border bg-white hover:bg-violet-50 hover:scale-105 transition cursor-pointer select-none" style="border-color: ${color}; color: ${color};" title="İlişkiyi Düzenle veya Sil">
+                    <span>🔗</span>
+                    <span class="truncate max-w-[100px]">${escapeHtml(rel.label || 'Çapraz Bağ')}</span>
+                    <span class="text-[9px] text-slate-400 hover:text-rose-600 px-0.5 font-bold" onclick="event.stopPropagation(); window.deleteRelation('${rel.id}')" title="İlişkiyi Sil">✕</span>
+                  </span>
+                </div>
+              </foreignObject>
+            </g>
+          `;
+        });
+
+        // Dynamic Connecting Preview Line
+        if (relationConnectingSourceId && nodeLayouts.has(relationConnectingSourceId)) {
+          const srcLayout = nodeLayouts.get(relationConnectingSourceId);
+          const startX = srcLayout.x + srcLayout.width;
+          const startY = srcLayout.y + srcLayout.height / 2;
+          const endX = mouseCanvasX || (startX + 120);
+          const endY = mouseCanvasY || startY;
+          const deltaX = Math.max(40, Math.abs(endX - startX) * 0.5);
+          const previewPath = `M ${startX} ${startY} C ${startX + deltaX} ${startY}, ${endX - deltaX} ${endY}, ${endX} ${endY}`;
+
+          svgPaths += `
+            <g>
+              <path d="${previewPath}" fill="none" stroke="${selectedRelColor}" stroke-width="2.5" stroke-dasharray="6,4" stroke-linecap="round" />
+              <circle cx="${endX}" cy="${endY}" r="5" fill="${selectedRelColor}" class="animate-ping" />
+              <circle cx="${endX}" cy="${endY}" r="4" fill="${selectedRelColor}" />
+            </g>
+          `;
+        }
+
+        svg.innerHTML = svgPaths;
+
+        // Render Node Cards
+        let nodesHtml = '';
+        const hasSearch = Boolean(searchQuery);
+        const isConnecting = Boolean(relationConnectingSourceId);
+
+        nodeLayouts.forEach(layout => {
+          const node = layout.node;
+          const theme = COLOR_PALETTE[node.color || 'emerald'] || COLOR_PALETTE.emerald;
+          const isMatch = isNodeMatch(node);
+          const isSelected = selectedNodeId === node.id;
+          const isConnSource = isConnecting && relationConnectingSourceId === node.id;
+          const isConnTargetCandidate = isConnecting && !isConnSource;
+
+          const fieldsHtml = node.fields && node.fields.length > 0 ? `
+            <div class="mt-2 pt-2 border-t border-slate-100 space-y-1 text-[11px]">
+              ${node.fields.slice(0, CARD_MAX_FIELDS).map(f => `
+                <div class="flex items-center justify-between gap-1">
+                  <span class="text-slate-500 font-medium truncate">${escapeHtml(f.key)}:</span>
+                  <span class="text-slate-800 font-bold truncate">${escapeHtml(f.value)}</span>
+                </div>
+              `).join('')}
+              ${node.fields.length > FIELD_HINT_AT ? `<div class="text-[10px] text-slate-400 font-medium">+${node.fields.length - FIELD_HINT_AT} alan daha...</div>` : ''}
+            </div>
+          ` : '';
+
+          const tagsHtml = node.tags && node.tags.length > 0 ? `
+            <div class="flex flex-wrap gap-1 mt-1.5">
+              ${node.tags.slice(0, 2).map(t => `<span class="px-1.5 py-0.2 rounded text-[10px] font-medium bg-slate-100 text-slate-600">${escapeHtml(t)}</span>`).join('')}
+            </div>
+          ` : '';
+
+          let cardClasses = 'absolute rounded-xl bg-white shadow-sm border transition-all duration-200 select-none ';
+          if (isConnSource) {
+            cardClasses += 'ring-4 ring-violet-500 shadow-xl shadow-violet-500/30 scale-[1.02] z-30 ';
+          } else if (isConnTargetCandidate) {
+            cardClasses += 'ring-2 ring-violet-400 ring-dashed bg-violet-50/40 hover:bg-violet-100/70 hover:scale-[1.02] cursor-pointer z-30 ';
+          } else if (isSelected) {
+            cardClasses += 'ring-2 ring-emerald-500 shadow-md ';
+          } else if (hasSearch) {
+            if (isMatch) {
+              cardClasses += 'ring-4 ring-amber-400 border-amber-500 bg-amber-50/70 shadow-xl shadow-amber-500/25 scale-[1.03] z-30 ';
+            } else {
+              cardClasses += 'opacity-40 grayscale-[40%] scale-[0.98] hover:opacity-90 ';
+            }
+          } else {
+            cardClasses += 'hover:shadow-md hover:border-slate-300 ';
+          }
+
+          nodesHtml += `
+            <div
+              class="${cardClasses}"
+              style="left: ${layout.x}px; top: ${layout.y}px; width: ${layout.width}px; border-color: ${isConnSource ? '#8b5cf6' : isMatch ? '#f59e0b' : theme.border};"
+              id="node-card-${node.id}"
+              ondragover="window.handleNodeDragOver(event, '${node.id}')"
+              ondragleave="window.handleNodeDragLeave(event, '${node.id}')"
+              ondrop="window.handleNodeDrop(event, '${node.id}')"
+              ${isConnTargetCandidate ? `onclick="window.handleTargetNodeSelect('${node.id}')"` : ''}
+            >
+              <!-- Interactive Right Relation Port -->
+              <div
+                onclick="event.stopPropagation(); ${isConnecting ? `window.handleTargetNodeSelect('${node.id}')` : `window.startRelationConnect('${node.id}')`}"
+                class="absolute -right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white border-2 border-violet-500 shadow-xs hover:scale-125 hover:bg-violet-600 flex items-center justify-center cursor-pointer transition z-30 group/relport"
+                title="${isConnecting ? 'Hedef Olarak Bağla' : 'Bu düğümden çapraz bağ çek'}"
+              >
+                <div class="w-1.5 h-1.5 rounded-full bg-violet-600 group-hover/relport:bg-white transition-colors"></div>
+              </div>
+
+              <!-- Card Header with Free Drag Action -->
+              <div 
+                onmousedown="window.startNodeDrag(event, '${node.id}')"
+                ontouchstart="window.startTouchDrag(event, '${node.id}', null)"
+                class="px-3 py-2 rounded-t-xl flex items-center justify-between border-b ${dragEnabled ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}" 
+                style="background-color: ${isConnSource ? '#ede9fe' : isMatch ? '#fef3c7' : theme.headerBg}; border-color: ${isConnSource ? '#8b5cf6' : isMatch ? '#f59e0b' : theme.border + '40'};"
+                title="Kutuyu tuvalde serbestçe kaydırmak için basılı tutup sürükleyin"
+              >
+                <div class="flex items-center gap-1.5 truncate">
+                  <span class="text-sm cursor-pointer" onclick="event.stopPropagation(); window.openEditModal('${node.id}')">${getIconEmoji(node.icon)}</span>
+                  <span class="text-xs font-bold truncate cursor-pointer hover:underline" onclick="event.stopPropagation(); window.openEditModal('${node.id}')" style="color: ${isConnSource ? '#5b21b6' : isMatch ? '#92400e' : theme.headerText};">${escapeHtml(node.title)}</span>
+                </div>
+                
+                <div class="flex items-center gap-1">
+                  ${isConnTargetCandidate ? `
+                    <button onclick="event.stopPropagation(); window.handleTargetNodeSelect('${node.id}')" class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-violet-600 hover:bg-violet-700 text-white shadow-xs animate-pulse">🎯 Hedef Seç</button>
+                  ` : ''}
+                  ${isConnSource ? `
+                    <span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-violet-600 text-white shadow-xs">🔗 Kaynak</span>
+                  ` : ''}
+                  ${isMatch && !isConnecting ? `<span class="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-amber-500 text-white shadow-xs">🔍 Eşleşti</span>` : ''}
+                  <span
+                    class="p-0.5 text-slate-400 hover:text-emerald-700 text-xs transition ${dragEnabled ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}"
+                    draggable="${dragEnabled ? 'true' : 'false'}"
+                    ondragstart="window.handleNodeDragStart(event, '${node.id}')"
+                    title="Hiyerarşide başka bir düğümün altına taşımak için sürükleyin"
+                  >✥</span>
+                  ${layout.hasChildren ? `
+                    <button
+                      onclick="event.stopPropagation(); window.toggleNodeCollapse('${node.id}')"
+                      class="p-1 rounded hover:bg-black/5 text-slate-600 font-mono text-[10px] font-bold"
+                      title="${node.collapsed ? 'Genişlet' : 'Daralt'}"
+                    >
+                      ${node.collapsed ? '+' : '−'}
+                    </button>
+                  ` : ''}
+                </div>
+              </div>
+
+              <!-- Card Body -->
+              <div class="p-2.5 cursor-pointer" onclick="${isConnTargetCandidate ? `window.handleTargetNodeSelect('${node.id}')` : `window.openEditModal('${node.id}')`}">
+                ${node.subtitle ? `<div class="text-[11px] font-medium text-slate-500 truncate">${escapeHtml(node.subtitle)}</div>` : ''}
+                ${tagsHtml}
+                ${fieldsHtml}
+              </div>
+
+              <!-- Card Quick Action Footer (Add Child, Add Sibling, Connect Relation, Edit, Delete) -->
+              <div class="px-2.5 py-1.5 bg-slate-50/80 rounded-b-xl border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-600">
+                <div class="flex items-center gap-1">
+                  <button
+                    onclick="event.stopPropagation(); window.addChildNode('${node.id}')"
+                    class="px-2 py-0.5 rounded bg-white hover:bg-emerald-50 text-emerald-700 border border-slate-200 hover:border-emerald-300 font-bold transition flex items-center gap-0.5"
+                    title="Alt Dal Ekle"
+                  >
+                    <span>➕</span> <span>Alt Dal</span>
+                  </button>
+                  <button
+                    onclick="event.stopPropagation(); window.addSiblingNode('${node.id}')"
+                    class="px-1.5 py-0.5 rounded bg-white hover:bg-blue-50 text-blue-700 border border-slate-200 hover:border-blue-300 font-medium transition"
+                    title="Kardeş Düğüm Ekle"
+                  >
+                    <span>👥 Kardeş</span>
+                  </button>
+                </div>
+
+                <div class="flex items-center gap-1">
+                  <button
+                    onclick="event.stopPropagation(); window.startRelationConnect('${node.id}')"
+                    class="px-1.5 py-0.5 rounded bg-white hover:bg-violet-50 text-violet-700 hover:text-violet-800 border border-slate-200 hover:border-violet-300 font-medium transition flex items-center gap-0.5"
+                    title="Çapraz İlişki Bağla"
+                  >
+                    <span>🔗</span>
+                  </button>
+                  <button
+                    onclick="event.stopPropagation(); window.openEditModal('${node.id}')"
+                    class="p-1 rounded bg-white hover:bg-slate-200 text-slate-700 border border-slate-200 transition"
+                    title="Düzenle"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    onclick="event.stopPropagation(); window.deleteNode('${node.id}')"
+                    class="p-1 rounded bg-white hover:bg-rose-50 text-rose-600 hover:text-rose-700 border border-slate-200 hover:border-rose-200 transition"
+                    title="Sil"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+
+        nodesLayer.innerHTML = nodesHtml;
+        // --- Koordinat gostergesi (HUD) ve izgara etiketleri ---
+        var hudEl = document.getElementById('coord-hud');
+        if (hudEl) hudEl.textContent = 'X:' + Math.round((-panX) / zoom) + '  Y:' + Math.round((-panY) / zoom);
+        var gridEl = document.getElementById('grid-labels');
+        if (gridEl) {
+          var ccRect = document.getElementById('canvas-container').getBoundingClientRect();
+          var z = zoom || 1;
+          var gx0 = Math.floor((-panX) / z / 100) * 100;
+          var gx1 = Math.floor((-panX + ccRect.width) / z / 100) * 100;
+          var gy0 = Math.floor((-panY) / z / 100) * 100;
+          var gy1 = Math.floor((-panY + ccRect.height) / z / 100) * 100;
+          var gs = '';
+          for (var _gx = gx0; _gx <= gx1; _gx += 100) {
+            gs += '<div style="position:absolute;left:' + _gx + 'px;top:' + gy0 + 'px;">' + _gx + '</div>';
+          }
+          for (var _gy = gy0; _gy <= gy1; _gy += 100) {
+            gs += '<div style="position:absolute;left:' + gx0 + 'px;top:' + _gy + 'px;">' + _gy + '</div>';
+          }
+          gridEl.innerHTML = gs;
+        }
+      }
+
+      function isNodeMatch(node) {
+        if (!searchQuery) return false;
+        const q = searchQuery.toLowerCase();
+        if (node.title.toLowerCase().includes(q)) return true;
+        if (node.subtitle && node.subtitle.toLowerCase().includes(q)) return true;
+        if (node.description && node.description.toLowerCase().includes(q)) return true;
+        if (node.tags && node.tags.some(t => t.toLowerCase().includes(q))) return true;
+        if (node.fields && node.fields.some(f => f.key.toLowerCase().includes(q) || f.value.toLowerCase().includes(q))) return true;
+        return false;
+      }
+
+      function generateId(prefix = 'node') {
+        return prefix + '_' + Math.random().toString(36).substr(2, 9);
+      }
+
+      // Render Outline with Full Actions & Relations
+      function renderOutline() {
+        const container = document.getElementById('outline-content');
+        if (!container) return;
+
+        const renderOutlineNode = (node, isRoot = false) => {
+          const theme = COLOR_PALETTE[node.color || 'emerald'] || COLOR_PALETTE.emerald;
+          const isMatch = isNodeMatch(node);
+
+          const fieldsHtml = node.fields && node.fields.length > 0 ? `
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-100 text-[11px]">
+              ${node.fields.map(f => `
+                <div class="bg-slate-50 p-1.5 rounded border border-slate-100">
+                  <span class="text-slate-400 font-medium">${escapeHtml(f.key)}:</span>
+                  <span class="text-slate-800 font-bold ml-1">${escapeHtml(f.value)}</span>
+                </div>
+              `).join('')}
+            </div>
+          ` : '';
+
+          // Find relations connected to this node
+          const nodeRelations = (project.relations || []).filter(r => r.sourceNodeId === node.id || r.targetNodeId === node.id);
+          const relsHtml = nodeRelations.length > 0 ? `
+            <div class="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-slate-100">
+              ${nodeRelations.map(rel => {
+                const isSrc = rel.sourceNodeId === node.id;
+                const otherId = isSrc ? rel.targetNodeId : rel.sourceNodeId;
+                const otherMatch = findNodeInTree(project.trees, otherId);
+                const otherTitle = otherMatch ? otherMatch.node.title : 'Düğüm';
+                const color = rel.color || '#8b5cf6';
+                return `
+                  <span onclick="window.openEditRelationModal('${rel.id}')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-white hover:bg-violet-50 transition cursor-pointer select-none" style="border-color: ${color}; color: ${color};">
+                    <span>🔗</span>
+                    <span>${isSrc ? '→' : '←'} ${escapeHtml(otherTitle)} (${escapeHtml(rel.label || 'Bağ')})</span>
+                    <span class="text-[9px] text-slate-400 hover:text-rose-600 px-0.5" onclick="event.stopPropagation(); window.deleteRelation('${rel.id}')">✕</span>
+                  </span>
+                `;
+              }).join('')}
+            </div>
+          ` : '';
+
+          const childrenHtml = node.children && node.children.length > 0 ? `
+            <div class="pl-6 mt-3 space-y-3">
+              ${node.children.map(child => renderOutlineNode(child)).join('')}
+            </div>
+          ` : '';
+
+          return `
+            <div class="${isRoot ? '' : 'tree-branch'}">
+              <div
+                id="outline-node-${node.id}"
+                class="p-3.5 rounded-xl border bg-white hover:border-slate-400 transition shadow-xs max-w-2xl ${
+                  isMatch ? 'ring-2 ring-amber-400 bg-amber-50/30' : ''
+                }"
+                style="border-color: ${theme.border};"
+              >
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2 cursor-pointer" onclick="window.openEditModal('${node.id}')">
+                    <span class="text-base">${getIconEmoji(node.icon)}</span>
+                    <span class="text-sm font-bold text-slate-900 hover:underline">${escapeHtml(node.title)}</span>
+                    ${node.subtitle ? `<span class="text-xs text-slate-500">&bull; ${escapeHtml(node.subtitle)}</span>` : ''}
+                  </div>
+                  
+                  <div class="flex items-center gap-1.5">
+                    <button
+                      onclick="window.addChildNode('${node.id}')"
+                      class="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition"
+                      title="Alt Dal Ekle"
+                    >
+                      ➕ Alt Dal
+                    </button>
+                    <button
+                      onclick="window.addSiblingNode('${node.id}')"
+                      class="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition"
+                      title="Kardeş Ekle"
+                    >
+                      👥 Kardeş
+                    </button>
+                    <button
+                      onclick="window.openRelationModal(null, '${node.id}')"
+                      class="px-2 py-0.5 rounded text-[11px] font-medium bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200 transition"
+                      title="Çapraz İlişki Kur"
+                    >
+                      🔗 Bağla
+                    </button>
+                    <button
+                      onclick="window.openEditModal('${node.id}')"
+                      class="p-1 rounded text-slate-600 hover:bg-slate-100 transition text-xs"
+                      title="Düzenle"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      onclick="window.deleteNode('${node.id}')"
+                      class="p-1 rounded text-rose-600 hover:bg-rose-50 transition text-xs"
+                      title="Sil"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+                ${node.description ? `<p class="text-xs text-slate-600 mt-1">${escapeHtml(node.description)}</p>` : ''}
+                ${fieldsHtml}
+                ${relsHtml}
+              </div>
+              ${childrenHtml}
+            </div>
+          `;
+        };
+
+        container.innerHTML = project.trees.map((tree, idx) => `
+          <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+            <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">${idx + 1}</span>
+                <h2 class="text-base font-bold text-slate-900">${escapeHtml(tree.name)}</h2>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="window.addChildNode('${tree.rootNode.id}')" class="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 rounded-lg text-xs font-bold transition">➕ Düğüm Ekle</button>
+                <button onclick="window.renameTree('${tree.id}')" class="p-1 text-slate-500 hover:bg-slate-100 rounded-lg text-xs transition" title="Yeniden Adlandır">✏️</button>
+                <button onclick="window.deleteTree('${tree.id}')" class="p-1 text-rose-500 hover:bg-rose-50 rounded-lg text-xs transition" title="Ağacı Sil">🗑️</button>
+              </div>
+            </div>
+            <div>
+              ${renderOutlineNode(tree.rootNode, true)}
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // Add & Delete & Edit Operations
+      window.addNewTree = function() {
+        const name = prompt('Yeni ağaç adını girin:', 'Yeni Varlık Ağacı');
+        if (!name || !name.trim()) return;
+
+        // Find max Y and X positions to spread trees
+        let maxY = 40;
+        let maxX = 40;
+        project.trees.forEach(t => {
+          if (t.y > maxY) maxY = t.y;
+          if (t.x > maxX) maxX = t.x;
+        });
+
+        // Randomize X slightly to avoid stacking
+        const newX = Math.floor(Math.random() * 800) + 40;
+        const newY = maxY + 400 + Math.floor(Math.random() * 200);
+
+        const newTree = {
+          id: generateId('tree'),
+          name: name.trim(),
+          x: newX,
+          y: newY,
+          rootNode: {
+            id: generateId('node'),
+            title: name.trim(),
+            subtitle: 'Ana Kategori',
+            icon: 'folder',
+            color: 'emerald',
+            fields: [],
+            tags: [],
+            children: []
+          }
+        };
+
+        project.trees.push(newTree);
+        saveProject();
+        recordActivity('created', 'tree', newTree.id, newTree.name, 'Yeni ağaç oluşturuldu');
+        if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+      };
+
+      window.renameTree = function(treeId) {
+        const tree = project.trees.find(t => t.id === treeId);
+        if (!tree) return;
+        const newName = prompt('Ağaç için yeni adı girin:', tree.name);
+        if (newName && newName.trim()) {
+          const oldName = tree.name;
+          tree.name = newName.trim();
+          saveProject();
+          recordActivity('updated', 'tree', tree.id, tree.name, `Ağaç adı: ${oldName} → ${tree.name}`);
+          if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+        }
+      };
+
+      window.deleteTree = function(treeId) {
+        const tree = project.trees.find(t => t.id === treeId);
+        if (!tree) return;
+        if (!confirm(`"${tree.name}" ağacını ve tüm alt düğümlerini silmek istediğinize emin misiniz?`)) return;
+
+        const nodeIds = new Set();
+        const collect = (n) => {
+          nodeIds.add(n.id);
+          if (n.children) n.children.forEach(collect);
+        };
+        collect(tree.rootNode);
+
+        project.trees = project.trees.filter(t => t.id !== treeId);
+        project.relations = project.relations.filter(r => !nodeIds.has(r.sourceNodeId) && !nodeIds.has(r.targetNodeId));
+
+        saveProject();
+        recordActivity('deleted', 'tree', treeId, tree.name, 'Ağaç ve alt düğümleri silindi');
+        if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+      };
+
+      window.addChildNode = function(parentId) {
+        const match = findNodeInTree(project.trees, parentId);
+        if (!match) return;
+
+        const newNode = {
+          id: generateId('node'),
+          title: 'Yeni Alt Düğüm',
+          subtitle: '',
+          icon: 'box',
+          color: match.node.color || 'emerald',
+          fields: [],
+          tags: [],
+          children: []
+        };
+
+        if (!match.node.children) match.node.children = [];
+        match.node.children.push(newNode);
+        match.node.collapsed = false;
+
+        saveProject();
+        recordActivity('created', 'node', newNode.id, newNode.title, `"${match.node.title}" altına eklendi`);
+        if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+
+        // Open edit modal directly for the newly created node
+        window.openEditModal(newNode.id);
+      };
+
+      window.addSiblingNode = function(nodeId) {
+        const match = findNodeInTree(project.trees, nodeId);
+        if (!match) return;
+
+        if (!match.parent) {
+          window.addNewTree();
+          return;
+        }
+
+        const newNode = {
+          id: generateId('node'),
+          title: 'Yeni Kardeş Düğüm',
+          subtitle: '',
+          icon: 'box',
+          color: match.parent.color || 'emerald',
+          fields: [],
+          tags: [],
+          children: []
+        };
+
+        const idx = match.parent.children.findIndex(c => c.id === nodeId);
+        if (idx >= 0) {
+          match.parent.children.splice(idx + 1, 0, newNode);
+        } else {
+          match.parent.children.push(newNode);
+        }
+
+        saveProject();
+        recordActivity('created', 'node', newNode.id, newNode.title, `"${match.parent.title}" altına kardeş olarak eklendi`);
+        if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+
+        window.openEditModal(newNode.id);
+      };
+
+      window.deleteNode = function(nodeId) {
+        const match = findNodeInTree(project.trees, nodeId);
+        if (!match) return;
+
+        if (!match.parent) {
+          window.deleteTree(match.tree.id);
+          return;
+        }
+
+        if (!confirm(`"${match.node.title}" düğümünü ve alt dallarını silmek istediğinize emin misiniz?`)) return;
+
+        const nodeIds = new Set();
+        const collect = (n) => {
+          nodeIds.add(n.id);
+          if (n.children) n.children.forEach(collect);
+        };
+        collect(match.node);
+
+        match.parent.children = match.parent.children.filter(c => c.id !== nodeId);
+        project.relations = project.relations.filter(r => !nodeIds.has(r.sourceNodeId) && !nodeIds.has(r.targetNodeId));
+
+        if (selectedNodeId === nodeId) {
+          closeModal();
+        }
+
+        saveProject();
+        recordActivity('deleted', 'node', nodeId, match.node.title, 'Düğüm ve alt dalları silindi');
+        if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+      };
+
+      // Cross-Tree Relations Operations
+      window.startRelationConnect = function(sourceId) {
+        const match = findNodeInTree(project.trees, sourceId);
+        if (!match) return;
+        relationConnectingSourceId = sourceId;
+        const banner = document.getElementById('relation-connecting-bar');
+        const sourceNameEl = document.getElementById('rel-conn-source-name');
+        if (banner && sourceNameEl) {
+          sourceNameEl.textContent = match.node.title;
+          banner.classList.remove('hidden');
+        }
+        renderCanvas();
+      };
+
+      window.cancelRelationConnect = function() {
+        relationConnectingSourceId = null;
+        const banner = document.getElementById('relation-connecting-bar');
+        if (banner) banner.classList.add('hidden');
+        renderCanvas();
+      };
+
+      window.handleTargetNodeSelect = function(targetId) {
+        if (!relationConnectingSourceId) return;
+        if (relationConnectingSourceId === targetId) {
+          alert('Bir düğüm kendisine bağlanamaz.');
+          return;
+        }
+        const sId = relationConnectingSourceId;
+        window.cancelRelationConnect();
+        window.openRelationModal(null, sId, targetId);
+      };
+
+      window.openRelationModal = function(relationIdToEdit = null, preSourceId = null, preTargetId = null) {
+        const allNodes = getAllProjectNodes();
+        if (allNodes.length < 2) {
+          alert('Çapraz ilişki kurabilmek için projede en az 2 düğüm bulunmalıdır.');
+          return;
+        }
+
+        const sourceSelect = document.getElementById('rel-source-select');
+        const targetSelect = document.getElementById('rel-target-select');
+        const editIdInput = document.getElementById('rel-edit-id');
+        const labelInput = document.getElementById('rel-label-input');
+        const styleSelect = document.getElementById('rel-style-select');
+        const titleEl = document.getElementById('rel-modal-title');
+        const btnDelete = document.getElementById('rel-btn-delete');
+
+        // Populate options
+        const optsHtml = allNodes.map(item => `<option value="${escapeHtml(item.node.id)}">${escapeHtml(item.label)}</option>`).join('');
+        sourceSelect.innerHTML = optsHtml;
+        targetSelect.innerHTML = optsHtml;
+
+        // Render Color Picker Swatches
+        const renderColorPicker = () => {
+          const container = document.getElementById('rel-color-picker-container');
+          if (!container) return;
+          container.innerHTML = RELATION_COLORS.map(c => `
+            <button
+              type="button"
+              onclick="window.selectRelColor('${c.hex}')"
+              class="w-6 h-6 rounded-full border transition-all flex items-center justify-center cursor-pointer ${
+                selectedRelColor.toLowerCase() === c.hex.toLowerCase() ? 'ring-2 ring-violet-500 scale-110 shadow-xs' : 'hover:scale-105'
+              }"
+              style="background-color: ${c.hex}; border-color: ${c.hex};"
+              title="${c.name}"
+            >
+              ${selectedRelColor.toLowerCase() === c.hex.toLowerCase() ? '<span class="text-white text-[10px] font-bold">✓</span>' : ''}
+            </button>
+          `).join('');
+        };
+
+        if (relationIdToEdit) {
+          const rel = (project.relations || []).find(r => r.id === relationIdToEdit);
+          if (!rel) return;
+          editIdInput.value = rel.id;
+          titleEl.textContent = 'Çapraz İlişkiyi Düzenle';
+          sourceSelect.value = rel.sourceNodeId;
+          targetSelect.value = rel.targetNodeId;
+          labelInput.value = rel.label || '';
+          styleSelect.value = rel.style || 'solid';
+          selectedRelColor = rel.color || '#8b5cf6';
+          if (btnDelete) btnDelete.classList.remove('hidden');
+        } else {
+          editIdInput.value = '';
+          titleEl.textContent = 'Yeni Çapraz Ağaç İlişkisi Oluştur';
+          if (preSourceId) {
+            sourceSelect.value = preSourceId;
+          } else {
+            sourceSelect.value = allNodes[0].node.id;
+          }
+          if (preTargetId) {
+            targetSelect.value = preTargetId;
+          } else {
+            const secondNode = allNodes.find(n => n.node.id !== sourceSelect.value) || allNodes[1] || allNodes[0];
+            targetSelect.value = secondNode.node.id;
+          }
+          labelInput.value = '';
+          styleSelect.value = 'solid';
+          selectedRelColor = '#8b5cf6';
+          if (btnDelete) btnDelete.classList.add('hidden');
+        }
+
+        renderColorPicker();
+
+        // Render project relations list table
+        const relsList = document.getElementById('rel-modal-list');
+        const relsCount = document.getElementById('rel-modal-list-count');
+        const relations = project.relations || [];
+        if (relsCount) relsCount.textContent = String(relations.length);
+
+        if (relsList) {
+          if (relations.length === 0) {
+            relsList.innerHTML = '<div class="text-slate-400 text-center py-3 bg-slate-50 rounded-xl border border-dashed border-slate-200">Henüz tanımlanmış bir çapraz ilişki yok.</div>';
+          } else {
+            relsList.innerHTML = relations.map(r => {
+              const srcMatch = findNodeInTree(project.trees, r.sourceNodeId);
+              const tgtMatch = findNodeInTree(project.trees, r.targetNodeId);
+              const srcName = srcMatch ? srcMatch.node.title : 'Bilinmeyen Düğüm';
+              const tgtName = tgtMatch ? tgtMatch.node.title : 'Bilinmeyen Düğüm';
+              const color = r.color || '#8b5cf6';
+
+              return `
+                <div class="flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-50 hover:bg-violet-50/50 border border-slate-200 transition">
+                  <div class="flex items-center gap-2 truncate">
+                    <span class="w-3 h-3 rounded-full shrink-0" style="background-color: ${color};"></span>
+                    <span class="font-bold text-slate-800 truncate">${escapeHtml(srcName)}</span>
+                    <span class="text-slate-400 font-mono">&rarr;</span>
+                    <span class="font-bold text-slate-800 truncate">${escapeHtml(tgtName)}</span>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white border border-slate-200 text-slate-600 truncate">${escapeHtml(r.label || 'İlişkili')}</span>
+                  </div>
+                  <div class="flex items-center gap-1 shrink-0">
+                    <button type="button" onclick="window.openRelationModal('${r.id}')" class="p-1 rounded text-slate-600 hover:bg-white hover:text-slate-900 transition" title="Düzenle">✏️</button>
+                    <button type="button" onclick="window.deleteRelation('${r.id}')" class="p-1 rounded text-rose-600 hover:bg-rose-100/50 transition" title="Sil">🗑️</button>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+        }
+
+        document.getElementById('relation-modal').classList.remove('hidden');
+      };
+
+      window.closeRelationModal = function() {
+        document.getElementById('relation-modal').classList.add('hidden');
+      };
+
+      window.selectRelColor = function(colorHex) {
+        selectedRelColor = colorHex;
+        const container = document.getElementById('rel-color-picker-container');
+        if (!container) return;
+        container.innerHTML = RELATION_COLORS.map(c => `
+          <button
+            type="button"
+            onclick="window.selectRelColor('${c.hex}')"
+            class="w-6 h-6 rounded-full border transition-all flex items-center justify-center cursor-pointer ${
+              selectedRelColor.toLowerCase() === c.hex.toLowerCase() ? 'ring-2 ring-violet-500 scale-110 shadow-xs' : 'hover:scale-105'
+            }"
+            style="background-color: ${c.hex}; border-color: ${c.hex};"
+            title="${c.name}"
+          >
+            ${selectedRelColor.toLowerCase() === c.hex.toLowerCase() ? '<span class="text-white text-[10px] font-bold">✓</span>' : ''}
+          </button>
+        `).join('');
+      };
+
+      window.saveRelationModal = function() {
+        const sourceSelect = document.getElementById('rel-source-select');
+        const targetSelect = document.getElementById('rel-target-select');
+        const editIdInput = document.getElementById('rel-edit-id');
+        const labelInput = document.getElementById('rel-label-input');
+        const styleSelect = document.getElementById('rel-style-select');
+
+        const sourceId = sourceSelect.value;
+        const targetId = targetSelect.value;
+        const label = labelInput.value.trim() || 'İlişkili';
+        const style = styleSelect.value || 'solid';
+        const editId = editIdInput.value;
+
+        if (!sourceId || !targetId) {
+          alert('Lütfen kaynak ve hedef düğümleri seçin.');
+          return;
+        }
+
+        if (sourceId === targetId) {
+          alert('Kaynak ve hedef düğüm aynı olamaz.');
+          return;
+        }
+
+        const sourceMatch = findNodeInTree(project.trees, sourceId);
+        const targetMatch = findNodeInTree(project.trees, targetId);
+        if (!sourceMatch || !targetMatch || sourceMatch.tree.id === targetMatch.tree.id) {
+          alert('Çapraz ilişki için farklı ağaçlardan düğümler seçin.');
+          return;
+        }
+
+        if (!project.relations) project.relations = [];
+
+        let activityAction = 'created';
+        let activityRelationId = editId;
+        if (editId) {
+          const rel = project.relations.find(r => r.id === editId);
+          if (rel) {
+            activityAction = 'updated';
+            rel.sourceNodeId = sourceId;
+            rel.targetNodeId = targetId;
+            rel.label = label;
+            rel.style = style;
+            rel.color = selectedRelColor;
+          }
+        } else {
+          activityRelationId = generateId('rel');
+          project.relations.push({
+            id: activityRelationId,
+            sourceNodeId: sourceId,
+            targetNodeId: targetId,
+            label,
+            style,
+            color: selectedRelColor
+          });
+        }
+
+        saveProject();
+        recordActivity(activityAction, 'relation', activityRelationId, `${sourceMatch.node.title} → ${targetMatch.node.title}`, `Çapraz ilişki: ${label}`);
+        closeRelationModal();
+        if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+      };
+
+      window.deleteCurrentEditingRelation = function() {
+        const editId = document.getElementById('rel-edit-id').value;
+        if (!editId) return;
+        window.deleteRelation(editId);
+        closeRelationModal();
+      };
+
+      window.deleteRelation = function(relId) {
+        if (!confirm('Bu çapraz bağlantıyı silmek istediğinize emin misiniz?')) return;
+        const relation = (project.relations || []).find(item => item.id === relId);
+        if (!relation) return;
+        const source = findNodeInTree(project.trees, relation.sourceNodeId);
+        const target = findNodeInTree(project.trees, relation.targetNodeId);
+        project.relations = (project.relations || []).filter(r => r.id !== relId);
+        saveProject();
+        recordActivity('deleted', 'relation', relId, `${source ? source.node.title : 'Bilinmeyen'} → ${target ? target.node.title : 'Bilinmeyen'}`, 'Çapraz ilişki silindi');
+        if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+        const relModal = document.getElementById('relation-modal');
+        if (relModal && !relModal.classList.contains('hidden')) {
+          window.openRelationModal();
+        }
+      };
+
+      window.openEditRelationModal = function(relId) {
+        window.openRelationModal(relId);
+      };
+
+      window.startRelationFromCurrentModalNode = function() {
+        if (!editingNodeId) return;
+        const nodeSrcId = editingNodeId;
+        closeModal();
+        if (viewMode !== 'canvas') {
+          setViewMode('canvas');
+        }
+        window.startRelationConnect(nodeSrcId);
+      };
+
+      // Modal Edit Engine
+      let editingNodeId = null;
+
+      window.openEditModal = function(nodeId) {
+        const match = findNodeInTree(project.trees, nodeId);
+        if (!match) return;
+
+        editingNodeId = nodeId;
+        selectedNodeId = nodeId;
+        const node = match.node;
+
+        document.getElementById('modal-header-icon').textContent = getIconEmoji(node.icon);
+        document.getElementById('modal-header-title').textContent = 'Düğümü Düzenle: ' + node.title;
+        document.getElementById('modal-header-tree-name').textContent = 'Ağaç: ' + match.tree.name;
+
+        document.getElementById('edit-node-title').value = node.title || '';
+        document.getElementById('edit-node-subtitle').value = node.subtitle || '';
+        document.getElementById('edit-node-description').value = node.description || '';
+        document.getElementById('edit-node-icon').value = node.icon || 'box';
+        document.getElementById('edit-node-color').value = node.color || 'emerald';
+        document.getElementById('edit-node-tags').value = (node.tags || []).join(', ');
+
+        // Render Field Rows
+        const fieldsContainer = document.getElementById('modal-fields-container');
+        fieldsContainer.innerHTML = '';
+        if (node.fields && node.fields.length > 0) {
+          node.fields.forEach(f => window.addModalFieldRow(f.key, f.value));
+        }
+
+        // Render Relations for this node
+        const nodeRels = (project.relations || []).filter(r => r.sourceNodeId === nodeId || r.targetNodeId === nodeId);
+        const relBadge = document.getElementById('modal-node-rel-badge');
+        const relsListContainer = document.getElementById('modal-node-relations-list');
+
+        if (relBadge) relBadge.textContent = String(nodeRels.length);
+        if (relsListContainer) {
+          if (nodeRels.length === 0) {
+relsListContainer.innerHTML = '<div class="text-slate-400 py-1.5 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">Bu düğüme bağlı çapraz ilişki bulunmuyor.</div>';
+          } else {
+            relsListContainer.innerHTML = nodeRels.map(r => {
+              const isSrc = r.sourceNodeId === nodeId;
+              const otherId = isSrc ? r.targetNodeId : r.sourceNodeId;
+              const otherMatch = findNodeInTree(project.trees, otherId);
+              const otherTitle = otherMatch ? otherMatch.node.title : 'Bilinmeyen Düğüm';
+              const color = r.color || '#8b5cf6';
+
+              return `
+                <div class="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-slate-50 border border-slate-200 hover:bg-violet-50/40 transition">
+                  <div class="flex items-center gap-1.5 truncate">
+                    <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${color};"></span>
+                    <span class="text-slate-500 font-medium">${isSrc ? '→ Hedef:' : '← Kaynak:'}</span>
+                    <span class="font-bold text-slate-800 truncate">${escapeHtml(otherTitle)}</span>
+                    <span class="text-slate-500">(${escapeHtml(r.label || 'Bağ')})</span>
+                  </div>
+                  <div class="flex items-center gap-1 shrink-0">
+                    <button type="button" onclick="window.openEditRelationModal('${r.id}')" class="p-1 text-slate-600 hover:text-slate-900 rounded" title="Düzenle">✏️</button>
+                    <button type="button" onclick="window.deleteRelation('${r.id}')" class="p-1 text-rose-600 hover:text-rose-700 rounded" title="Sil">🗑️</button>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+        }
+
+        document.getElementById('node-modal').classList.remove('hidden');
+      };
+
+      window.addModalFieldRow = function(key = '', value = '') {
+        const container = document.getElementById('modal-fields-container');
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-2 modal-field-row';
+        row.innerHTML = `
+          <input type="text" placeholder="Alan Adı (Örn: Plaka)" value="${escapeHtml(key)}" class="field-key w-1/3 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+          <input type="text" placeholder="Değer (Örn: 34 ABC 123)" value="${escapeHtml(value)}" class="field-value flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+          <button type="button" onclick="this.parentElement.remove()" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition" title="Alanı Kaldır">✕</button>
+        `;
+        container.appendChild(row);
+      };
+
+      window.saveModalChanges = function() {
+        if (!editingNodeId) return;
+        const match = findNodeInTree(project.trees, editingNodeId);
+        if (!match) return;
+
+        const titleVal = document.getElementById('edit-node-title').value.trim() || 'İsimsiz Düğüm';
+        const subtitleVal = document.getElementById('edit-node-subtitle').value.trim();
+        const descVal = document.getElementById('edit-node-description').value.trim();
+        const iconVal = document.getElementById('edit-node-icon').value;
+        const colorVal = document.getElementById('edit-node-color').value;
+        const tagsInput = document.getElementById('edit-node-tags').value;
+        const tagsVal = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+        // Collect fields
+        const fieldRows = document.querySelectorAll('#modal-fields-container .modal-field-row');
+        const fieldsVal = [];
+        fieldRows.forEach(row => {
+          const k = row.querySelector('.field-key').value.trim();
+          const v = row.querySelector('.field-value').value.trim();
+          if (k || v) {
+            fieldsVal.push({ key: k || 'Alan', value: v });
+          }
+        });
+
+        // Update node in place
+        match.node.title = titleVal;
+        match.node.subtitle = subtitleVal;
+        match.node.description = descVal;
+        match.node.icon = iconVal;
+        match.node.color = colorVal;
+        match.node.tags = tagsVal;
+        match.node.fields = fieldsVal;
+
+        saveProject();
+        recordActivity('updated', 'node', match.node.id, match.node.title, 'Düğüm bilgileri güncellendi');
+        closeModal();
+        if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+      };
+
+      window.deleteCurrentModalNode = function() {
+        if (!editingNodeId) return;
+        const idToDelete = editingNodeId;
+        closeModal();
+        window.deleteNode(idToDelete);
+      };
+
+      window.closeModal = function() {
+        document.getElementById('node-modal').classList.add('hidden');
+        editingNodeId = null;
+        selectedNodeId = null;
+      };
+
+      // Drag Individual Node or Tree Root Logic
+      window.startNodeDrag = function(e, nodeId) { if (!dragEnabled) return;
+        const match = findNodeInTree(project.trees, nodeId);
+        if (!match) return;
+
+        // If it's a root node, drag the entire tree
+        if (!match.parent) {
+          window.startTreeDrag(e, match.tree.id);
+          return;
+        }
+
+        e.stopPropagation();
+        const startOffsetX = match.node.offsetX || 0;
+        const startOffsetY = match.node.offsetY || 0;
+        const mouseStartX = e.clientX;
+        const mouseStartY = e.clientY;
+
+        const handleMove = (moveEvt) => {
+          const dx = (moveEvt.clientX - mouseStartX) / zoom;
+          const dy = (moveEvt.clientY - mouseStartY) / zoom;
+          match.node.offsetX = Math.round(startOffsetX + dx);
+          match.node.offsetY = Math.round(startOffsetY + dy);
+          renderCanvas();
+        };
+
+        const handleUp = () => {
+          window.removeEventListener('mousemove', handleMove);
+          window.removeEventListener('mouseup', handleUp);
+          saveProject();
+        };
+
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('mouseup', handleUp);
+      };
+
+      // Drag Tree Root Logic
+      let touchDragState = null;
+      let suppressNextTouchClick = false;
+
+      window.startTouchDrag = function(e, nodeId, treeId) { if (!dragEnabled) return;
+        if (e.touches.length !== 1 || e.target.closest('button, input, select, a')) {
+          touchDragState = null;
+          return;
+        }
+
+        const touch = e.touches[0];
+        if (treeId) {
+          const tree = project.trees.find(item => item.id === treeId);
+          if (!tree) return;
+          touchDragState = {
+            type: 'tree',
+            tree,
+            startX: tree.x,
+            startY: tree.y,
+            startTouchX: touch.clientX,
+            startTouchY: touch.clientY,
+            moved: false
+          };
+        } else {
+          const match = findNodeInTree(project.trees, nodeId);
+          if (!match) return;
+          if (!match.parent) {
+            window.startTouchDrag(e, null, match.tree.id);
+            return;
+          }
+          touchDragState = {
+            type: 'node',
+            node: match.node,
+            startOffsetX: match.node.offsetX || 0,
+            startOffsetY: match.node.offsetY || 0,
+            startTouchX: touch.clientX,
+            startTouchY: touch.clientY,
+            moved: false
+          };
+        }
+        e.stopPropagation();
+      };
+
+      window.startTreeDrag = function(e, treeId) { if (!dragEnabled) return;
+        e.stopPropagation();
+        const tree = project.trees.find(t => t.id === treeId);
+        if (!tree) return;
+
+        activeTreeDrag = {
+          tree,
+          startX: tree.x,
+          startY: tree.y,
+          mouseStartX: e.clientX,
+          mouseStartY: e.clientY
+        };
+
+        const handleMove = (moveEvt) => {
+          if (!activeTreeDrag) return;
+          const dx = (moveEvt.clientX - activeTreeDrag.mouseStartX) / zoom;
+          const dy = (moveEvt.clientY - activeTreeDrag.mouseStartY) / zoom;
+          // No lower bound restriction, allow moving anywhere
+          activeTreeDrag.tree.x = Math.round(activeTreeDrag.startX + dx);
+          activeTreeDrag.tree.y = Math.round(activeTreeDrag.startY + dy);
+          renderCanvas();
+        };
+
+        const handleUp = () => {
+          window.removeEventListener('mousemove', handleMove);
+          window.removeEventListener('mouseup', handleUp);
+          if (activeTreeDrag) {
+            activeTreeDrag = null;
+            saveProject();
+          }
+        };
+
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('mouseup', handleUp);
+      };
+
+      window.addEventListener('touchmove', (e) => {
+        if (!touchDragState) return;
+        if (e.touches.length !== 1) {
+          touchDragState = null;
+          return;
+        }
+
+        const touch = e.touches[0];
+        const dx = touch.clientX - touchDragState.startTouchX;
+        const dy = touch.clientY - touchDragState.startTouchY;
+        if (!touchDragState.moved && Math.hypot(dx, dy) < 6) return;
+        touchDragState.moved = true;
+        suppressNextTouchClick = true;
+
+        if (touchDragState.type === 'tree') {
+          touchDragState.tree.x = Math.round(touchDragState.startX + dx / zoom);
+          touchDragState.tree.y = Math.round(touchDragState.startY + dy / zoom);
+        } else {
+          touchDragState.node.offsetX = Math.round(touchDragState.startOffsetX + dx / zoom);
+          touchDragState.node.offsetY = Math.round(touchDragState.startOffsetY + dy / zoom);
+        }
+        renderCanvas();
+        e.preventDefault();
+      }, { passive: false });
+
+      window.addEventListener('touchend', () => {
+        if (!touchDragState) return;
+        const moved = touchDragState.moved;
+        touchDragState = null;
+        if (moved) saveProject();
+      });
+
+      window.addEventListener('touchcancel', () => {
+        touchDragState = null;
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!suppressNextTouchClick) return;
+        suppressNextTouchClick = false;
+        e.preventDefault();
+        e.stopPropagation();
+      }, true);
+
+      // Node Drag & Drop (Reparenting)
+      let draggedNodeId = null;
+
+      window.handleNodeDragStart = function(e, nodeId) { if (!dragEnabled) return;
+        draggedNodeId = nodeId;
+        e.dataTransfer.setData('text/plain', nodeId);
+      };
+
+      window.handleNodeDragOver = function(e, targetId) {
+        e.preventDefault();
+        const card = document.getElementById('node-card-' + targetId);
+        if (card && draggedNodeId !== targetId) {
+          card.classList.add('node-card-dragover');
+        }
+      };
+
+      window.handleNodeDragLeave = function(e, targetId) {
+        const card = document.getElementById('node-card-' + targetId);
+        if (card) {
+          card.classList.remove('node-card-dragover');
+        }
+      };
+
+      window.handleNodeDrop = function(e, targetId) {
+        e.preventDefault();
+        const card = document.getElementById('node-card-' + targetId);
+        if (card) card.classList.remove('node-card-dragover');
+
+        const sourceId = e.dataTransfer.getData('text/plain') || draggedNodeId;
+        if (!sourceId || sourceId === targetId) return;
+
+        reparentNode(sourceId, targetId);
+        draggedNodeId = null;
+      };
+
+      function findNodeInTree(trees, nodeId) {
+        for (const tree of trees) {
+          const search = (n, p) => {
+            if (n.id === nodeId) return { node: n, parent: p, tree };
+            if (n.children) {
+              for (const c of n.children) {
+                const res = search(c, n);
+                if (res) return res;
+              }
+            }
+            return null;
+          };
+          const match = search(tree.rootNode, null);
+          if (match) return match;
+        }
+        return null;
+      }
+
+      function reparentNode(sourceId, targetParentId) {
+        const sourceMatch = findNodeInTree(project.trees, sourceId);
+        const targetMatch = findNodeInTree(project.trees, targetParentId);
+        if (!sourceMatch || !targetMatch) return;
+
+        // Prevent moving root node onto its own descendants
+        const isDescendant = (parent, childId) => {
+          if (!parent.children) return false;
+          for (const c of parent.children) {
+            if (c.id === childId || isDescendant(c, childId)) return true;
+          }
+          return false;
+        };
+
+        if (isDescendant(sourceMatch.node, targetParentId)) {
+          alert('Bir düğüm kendi alt dalının altına taşınamaz.');
+          return;
+        }
+
+        // If source is a root node, remove its tree
+        if (!sourceMatch.parent) {
+          project.trees = project.trees.filter(t => t.id !== sourceMatch.tree.id);
+        } else {
+          sourceMatch.parent.children = sourceMatch.parent.children.filter(c => c.id !== sourceId);
+        }
+
+        // Add to target parent
+        if (!targetMatch.node.children) targetMatch.node.children = [];
+        targetMatch.node.children.push(sourceMatch.node);
+        targetMatch.node.collapsed = false;
+
+        saveProject();
+        renderCanvas();
+      }
+
+      // Canvas Pan & Zoom Handlers
+      const canvasContainer = document.getElementById('canvas-container');
+
+      canvasContainer.addEventListener('mousedown', (e) => {
+        // Eğer tıklanan eleman bir kart (node-card) veya ağaç başlığı (tree-header) ise pan başlatma
+        if (e.target.closest('[id^="node-card-"]') || e.target.closest('[data-tree-id]')) {
+          return;
+        }
+        // Sadece sol tık
+        if (e.button !== 0) return;
+        isPanning = true;
+        panStartX = e.clientX - panX;
+        panStartY = e.clientY - panY;
+        canvasContainer.classList.add('cursor-grabbing');
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        const rect = canvasContainer.getBoundingClientRect();
+        mouseCanvasX = Math.round((e.clientX - rect.left - panX) / zoom);
+        mouseCanvasY = Math.round((e.clientY - rect.top - panY) / zoom);
+
+        if (relationConnectingSourceId) {
+          renderCanvas();
+        }
+
+        if (!isPanning) return;
+        panX = e.clientX - panStartX;
+        panY = e.clientY - panStartY;
+        renderCanvas();
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (isPanning) {
+          isPanning = false;
+          canvasContainer.classList.remove('cursor-grabbing');
+        }
+      });
+
+      let touchPanStart = null;
+      let pinchStart = null;
+
+      const getTouchCenter = (touches) => ({
+        x: (touches[0].clientX + touches[1].clientX) / 2,
+        y: (touches[0].clientY + touches[1].clientY) / 2
+      });
+
+      const getTouchDistance = (touches) => Math.hypot(
+        touches[1].clientX - touches[0].clientX,
+        touches[1].clientY - touches[0].clientY
+      );
+
+      canvasContainer.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+          const center = getTouchCenter(e.touches);
+          pinchStart = {
+            distance: getTouchDistance(e.touches),
+            zoom,
+            canvasX: (center.x - canvasContainer.getBoundingClientRect().left - panX) / zoom,
+            canvasY: (center.y - canvasContainer.getBoundingClientRect().top - panY) / zoom
+          };
+          touchPanStart = null;
+          e.preventDefault();
+          return;
+        }
+
+        if (e.touches.length === 1 &&
+            !e.target.closest('[id^="node-card-"]') &&
+            !e.target.closest('[data-tree-id]')) {
+          touchPanStart = {
+            x: e.touches[0].clientX - panX,
+            y: e.touches[0].clientY - panY
+          };
+          e.preventDefault();
+        }
+      }, { passive: false });
+
+      canvasContainer.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2 && pinchStart) {
+          const center = getTouchCenter(e.touches);
+          const rect = canvasContainer.getBoundingClientRect();
+          const currentDistance = getTouchDistance(e.touches);
+          const nextZoom = Math.max(0.25, Math.min(2.5,
+            Math.round(pinchStart.zoom * currentDistance / pinchStart.distance * 100) / 100));
+          const centerX = center.x - rect.left;
+          const centerY = center.y - rect.top;
+          zoom = nextZoom;
+          panX = Math.round(centerX - pinchStart.canvasX * zoom);
+          panY = Math.round(centerY - pinchStart.canvasY * zoom);
+          document.getElementById('zoom-text').textContent = Math.round(zoom * 100) + '%';
+          renderCanvas();
+          e.preventDefault();
+          return;
+        }
+
+        if (e.touches.length === 1 && touchPanStart) {
+          panX = e.touches[0].clientX - touchPanStart.x;
+          panY = e.touches[0].clientY - touchPanStart.y;
+          renderCanvas();
+          e.preventDefault();
+        }
+      }, { passive: false });
+
+      canvasContainer.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) pinchStart = null;
+        if (e.touches.length === 0) touchPanStart = null;
+      }, { passive: false });
+
+      // Keyboard Shortcuts (Esc to Cancel Connection or Close Modals)
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          if (relationConnectingSourceId) {
+            cancelRelationConnect();
+          } else if (!document.getElementById('relation-modal').classList.contains('hidden')) {
+            closeRelationModal();
+          } else if (!document.getElementById('notifications-modal').classList.contains('hidden')) {
+            closeNotificationsModal();
+          } else if (!document.getElementById('node-modal').classList.contains('hidden')) {
+            closeModal();
+          }
+        }
+      });
+
+      canvasContainer.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const rect = canvasContainer.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        const currentZoom = zoom;
+        const canvasX = (mouseX - panX) / currentZoom;
+        const canvasY = (mouseY - panY) / currentZoom;
+
+        let newZoom = e.deltaY < 0 ? currentZoom * 1.1 : currentZoom / 1.1;
+        newZoom = Math.max(0.25, Math.min(2.5, Math.round(newZoom * 100) / 100));
+
+        if (newZoom !== currentZoom) {
+          panX = Math.round(mouseX - canvasX * newZoom);
+          panY = Math.round(mouseY - canvasY * newZoom);
+          zoom = newZoom;
+          document.getElementById('zoom-text').textContent = Math.round(zoom * 100) + '%';
+          renderCanvas();
+        }
+      }, { passive: false });
+
+      window.handleZoom = function(delta) {
+        zoom = Math.max(0.3, Math.min(2.0, parseFloat((zoom + delta).toFixed(2))));
+        document.getElementById('zoom-text').textContent = Math.round(zoom * 100) + '%';
+        renderCanvas();
+      };
+
+      window.handleZoomReset = function() {
+        zoom = 1.0;
+        panX = 40;
+        panY = 40;
+        document.getElementById('zoom-text').textContent = '100%';
+        renderCanvas();
+      };
+
+      window.toggleNodeCollapse = function(nodeId) {
+        const match = findNodeInTree(project.trees, nodeId);
+        if (match) {
+          match.node.collapsed = !match.node.collapsed;
+          saveProject();
+          renderCanvas();
+        }
+      };
+
+      window.setViewMode = function(mode) {
+        viewMode = mode;
+        const canvasEl = document.getElementById('canvas-container');
+        const outlineEl = document.getElementById('outline-container');
+        const btnCanvas = document.getElementById('btn-view-canvas');
+        const btnOutline = document.getElementById('btn-view-outline');
+
+        if (mode === 'canvas') {
+          canvasEl.classList.remove('hidden');
+          outlineEl.classList.add('hidden');
+          btnCanvas.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-slate-900 shadow-xs transition';
+          btnOutline.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition';
+          renderCanvas();
+        } else {
+          canvasEl.classList.add('hidden');
+          outlineEl.classList.remove('hidden');
+          btnCanvas.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition';
+          btnOutline.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-slate-900 shadow-xs transition';
+          renderOutline();
+        }
+      };
+
+      window.handleSearch = function(val) {
+        searchQuery = val.trim();
+        searchMatches = searchQuery ? getAllProjectNodes().filter(item => isNodeMatch(item.node)) : [];
+        activeSearchIndex = searchMatches.length ? 0 : -1;
+        updateSearchControls();
+
+        if (searchMatches.length) {
+          focusSearchMatch(0);
+          return;
+        }
+
+        if (viewMode === 'canvas') {
+          renderCanvas();
+        } else {
+          renderOutline();
+        }
+      };
+
+      window.navigateSearch = function(direction) {
+        if (!searchMatches.length) return;
+        focusSearchMatch(activeSearchIndex + direction);
+      };
+
+      window.downloadJSON = function() {
+        const str = JSON.stringify(project, null, 2);
+        const blob = new Blob([str], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = (project.projectName || 'agac-projesi').toLowerCase().replace(/\s+/g, '-') + '.json';
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      window.uploadJSON = function(file) {
+        if (!file) return;
+
+        const input = document.getElementById('json-upload-input');
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          let importedProject;
+          try {
+            importedProject = JSON.parse(event.target.result);
+          } catch (error) {
+            alert('JSON dosyası okunamadı. Lütfen geçerli bir JSON dosyası seçin.');
+            input.value = '';
+            return;
+          }
+
+          const hasValidTrees = importedProject &&
+            Array.isArray(importedProject.trees) &&
+            importedProject.trees.every(tree => tree && tree.rootNode && typeof tree.rootNode === 'object');
+          const hasValidRelations = !importedProject.relations || Array.isArray(importedProject.relations);
+
+          if (!hasValidTrees || !hasValidRelations) {
+            alert('Geçersiz proje dosyası. Dosyada trees dizisi, her ağaçta rootNode ve geçerli relations yapısı bulunmalıdır.');
+            input.value = '';
+            return;
+          }
+
+          if (!importedProject.relations) importedProject.relations = [];
+          project = importedProject;
+          saveProject();
+          recordActivity('imported', 'project', 'project', project.projectName || 'Proje', 'JSON dosyasından proje yüklendi');
+          if (viewMode === 'canvas') renderCanvas(); else renderOutline();
+          input.value = '';
+          alert('Proje yüklendi ve Firebase ile eşitlendi.');
+        };
+        reader.onerror = function() {
+          alert('JSON dosyası okunurken bir hata oluştu.');
+          input.value = '';
+        };
+        reader.readAsText(file);
+      };
+
+      // Set Canvas Size function
+      window.setCanvasSize = function() {
+        const current = canvasWidth;
+        const input = prompt(`Tuval boyutunu (genişlik ve yükseklik) piksel cinsinden girin. Önerilen: 10000-20000 arası. Mevcut: ${current}`, String(current));
+        if (input === null) return;
+        const size = parseInt(input);
+        if (isNaN(size) || size < 100) {
+          alert('Geçerli bir sayı girin (en az 100).');
+          return;
+        }
+        canvasWidth = size;
+        canvasHeight = size;
+        renderCanvas();
+        // Optionally save to localStorage for persistence
+        try {
+          localStorage.setItem('canvas_size_' + window.location.pathname, String(size));
+        } catch (e) {}
+      };
+
+      // Restore canvas size from localStorage
+      try {
+        const savedSize = localStorage.getItem('canvas_size_' + window.location.pathname);
+        if (savedSize) {
+          const size = parseInt(savedSize);
+          if (!isNaN(size) && size >= 100) {
+            canvasWidth = size;
+            canvasHeight = size;
+          }
+        }
+      } catch (e) {}
+
+      function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      // Dark Mode Toggle Function
+      window.toggleDarkMode = function() {
+        const body = document.body;
+        const isDark = body.classList.toggle('dark-mode');
+        const icon = document.getElementById('theme-icon');
+        const text = document.getElementById('theme-text');
+        if (isDark) {
+          icon.textContent = '☀️';
+          text.textContent = 'Açık Mod';
+        } else {
+          icon.textContent = '🌙';
+          text.textContent = 'Koyu Mod';
+        }
+        localStorage.setItem('theme-preference', isDark ? 'dark' : 'light');
+      };
+
+      // Initialize Dark Mode based on LocalStorage
+      (function initTheme() {
+        const saved = localStorage.getItem('theme-preference');
+        // Kullanici acik modu acikca secmedikce uygulama koyu modda acilir.
+        if (saved !== 'light') {
+          document.body.classList.add('dark-mode');
+          document.getElementById('theme-icon').textContent = '☀️';
+          document.getElementById('theme-text').textContent = 'Açık Mod';
+        }
+      })();
+
+      // Her gercek sayfa acilisinda (F5 / URL yenilemesi / otomatik guncelleme reload) giris sayfasi gosterilir.
+      // Otomatik oturum atlamasi yok; sadece 'Cikis Yap' butonu oturumu sonlandirir.
+      try {
+        if (false && sessionStorage.getItem('arhsAuthenticated') === '1') {
+          window.enterApp();
+        } else {
+          // Giris sayfasinda imlec dogrudan sifre kutusuna gelsin ve numerik klavye acilsin.
+          (function autoFocusLogin() {
+            var loginInputEl = document.getElementById('access-code-input');
+            if (!loginInputEl) return;
+            function focusIt() {
+              try { loginInputEl.focus({ preventScroll: true }); } catch (e) { try { loginInputEl.focus(); } catch (e2) {} }
+            }
+            // Hemen ve coklu gecikmeli deneme: imlec sifre kutusuna gelsin.
+            // NOT: Mobil tarayicilar, kullanici etkilesimi olmadan klavyeyi programatik
+            // acmaya izin vermez; bu yuzden klavye ancak bir dokunus sonrasi gelir.
+            focusIt();
+            [0, 120, 300, 600, 1000, 1600, 2400, 3500].forEach(function(delay) {
+              setTimeout(focusIt, delay);
+            });
+            window.addEventListener('load', focusIt);
+            var loginScreenEl = document.getElementById('login-screen');
+            if (loginScreenEl && window.matchMedia('(pointer: coarse)').matches) {
+              // Mobilde herhangi bir yere dokunuldugunda klavyeyi ac (once-lik degil kalici).
+              ['touchstart', 'touchend', 'mousedown', 'pointerdown'].forEach(function(evt) {
+                loginScreenEl.addEventListener(evt, function reopenFocus() {
+                  focusIt();
+                  try { loginInputEl.click(); } catch (e) {}
+                }, { passive: true });
+              });
+            }
+          })();
+        }
+      } catch (e) {
+        try { document.getElementById('access-code-input').focus(); } catch (e2) {}
+      }
+      })();

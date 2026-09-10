@@ -7,6 +7,12 @@ const CACHE_NAME = self.PWA_CACHE_VERSION;
 const APP_SHELL = [
   './',
   './index.html',
+  './app-config.js',
+  './head-init.js',
+  './fonts-init.js',
+  './styles.css',
+  './project-data.js',
+  './app.js',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
