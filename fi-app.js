@@ -140,6 +140,7 @@
       id: generateId('node'),
       title: 'Yeni Kişi',
       subtitle: '',
+      gender: '',
       icon: 'user',
       color: 'emerald',
       fields: [],
@@ -149,10 +150,44 @@
     }, partial || {});
   }
 
+  function genderLabel(gender) {
+    if (gender === 'female') return 'Kadın';
+    if (gender === 'male') return 'Erkek';
+    return '';
+  }
+
+  function colorForGender(gender) {
+    if (gender === 'female') return 'rose';
+    if (gender === 'male') return 'blue';
+    return null;
+  }
+
+  function applyGenderTheme(node) {
+    if (!node) return;
+    const color = colorForGender(node.gender);
+    if (color) node.color = color;
+  }
+
+  function genderSelectHtml(nodeId, gender, compact) {
+    const g = gender === 'female' || gender === 'male' ? gender : '';
+    const cls = compact
+      ? 'w-full max-w-full bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-[10px] font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer'
+      : 'w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none';
+    return '<select class="' + cls + '"' +
+      ' data-gender-select="1"' +
+      (compact ? ' onclick="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()"' : '') +
+      ' onchange="event.stopPropagation(); window.setNodeGender(\'' + nodeId + '\', this.value)">' +
+      '<option value=""' + (g === '' ? ' selected' : '') + '>Cinsiyet</option>' +
+      '<option value="female"' + (g === 'female' ? ' selected' : '') + '>♀ Kadın</option>' +
+      '<option value="male"' + (g === 'male' ? ' selected' : '') + '>♂ Erkek</option>' +
+      '</select>';
+  }
+
   function ensureFamilyShape(node) {
     if (!node) return;
     if (!Array.isArray(node.children)) node.children = [];
     if (!Array.isArray(node.spouses)) node.spouses = [];
+    applyGenderTheme(node);
     node.spouses.forEach((u) => {
       if (!u.id) u.id = generateId('union');
       if (!u.person) u.person = createPerson({ title: 'Eş', subtitle: 'Eş', icon: 'heart', color: 'rose' });
@@ -185,6 +220,7 @@
 
   function estimateNodeHeight(node) {
     let h = 78;
+    h += 28; // cinsiyet spinner satırı
     if (node.subtitle) h += 16;
     if (node.tags && node.tags.length) h += 22;
     if (node.fields && node.fields.length > 0) {
@@ -610,6 +646,10 @@
     const q = searchQuery.toLowerCase();
     if ((node.title || '').toLowerCase().includes(q)) return true;
     if (node.subtitle && node.subtitle.toLowerCase().includes(q)) return true;
+    const gLabel = genderLabel(node.gender);
+    if (gLabel && gLabel.toLowerCase().includes(q)) return true;
+    if (node.gender === 'female' && (q === 'kadin' || q === 'kadın' || q === '♀')) return true;
+    if (node.gender === 'male' && (q === 'erkek' || q === '♂')) return true;
     if (node.description && node.description.toLowerCase().includes(q)) return true;
     if (node.tags && node.tags.some((t) => t.toLowerCase().includes(q))) return true;
     if (node.fields && node.fields.some((f) =>
@@ -850,6 +890,9 @@
           </div>
           <div class="p-2.5 cursor-pointer" onclick="${isConnTargetCandidate ? `window.handleTargetNodeSelect('${node.id}')` : `window.openEditModal('${node.id}')`}">
             ${node.subtitle ? '<div class="text-[11px] font-medium text-slate-500 truncate">' + escapeHtml(node.subtitle) + '</div>' : ''}
+            <div class="mt-1.5" onclick="event.stopPropagation()">
+              ${genderSelectHtml(node.id, node.gender, true)}
+            </div>
             ${tagsHtml}
             ${fieldsHtml}
           </div>
@@ -911,9 +954,12 @@
       return `
         <div class="ml-0 sm:ml-4 mt-2 border-l-2 pl-3" style="border-color: ${theme.border}55;" id="outline-node-${node.id}">
           <div class="bg-white rounded-xl border border-slate-200 p-3 flex items-start justify-between gap-2">
-            <div class="min-w-0 cursor-pointer" onclick="window.openEditModal('${node.id}')">
+            <div class="min-w-0 cursor-pointer flex-1" onclick="window.openEditModal('${node.id}')">
               <div class="text-sm font-bold text-slate-800">${getIconEmoji(node.icon)} ${escapeHtml(node.title)}</div>
               ${node.subtitle ? '<div class="text-[11px] text-slate-500">' + escapeHtml(node.subtitle) + '</div>' : ''}
+              <div class="mt-1.5 max-w-[140px]" onclick="event.stopPropagation()">
+                ${genderSelectHtml(node.id, node.gender, true)}
+              </div>
             </div>
             <div class="flex flex-wrap items-center gap-1 shrink-0">
               <button onclick="window.addSpouseNode('${node.id}')" class="px-1.5 py-0.5 text-[10px] font-bold bg-rose-50 text-rose-700 rounded-lg border">💑</button>
@@ -1248,6 +1294,24 @@
     refreshView();
   };
 
+  window.setNodeGender = function (nodeId, gender) {
+    const match = findNodeInTree(project.trees, nodeId);
+    if (!match) return;
+    match.node.gender = (gender === 'female' || gender === 'male') ? gender : '';
+    applyGenderTheme(match.node);
+    saveProject();
+    recordActivity('updated', 'node', match.node.id, match.node.title, 'Cinsiyet güncellendi');
+    refreshView();
+  };
+
+  window.syncGenderColorInModal = function () {
+    const genderEl = document.getElementById('edit-node-gender');
+    const colorEl = document.getElementById('edit-node-color');
+    if (!genderEl || !colorEl) return;
+    const color = colorForGender(genderEl.value);
+    if (color) colorEl.value = color;
+  };
+
   window.openEditModal = function (nodeId) {
     const match = findNodeInTree(project.trees, nodeId);
     if (!match) return;
@@ -1259,8 +1323,11 @@
     document.getElementById('modal-header-tree-name').textContent = match.tree.name;
     document.getElementById('edit-node-title').value = node.title || '';
     document.getElementById('edit-node-subtitle').value = node.subtitle || '';
+    const genderEl = document.getElementById('edit-node-gender');
+    if (genderEl) genderEl.value = (node.gender === 'female' || node.gender === 'male') ? node.gender : '';
     document.getElementById('edit-node-description').value = node.description || '';
     document.getElementById('edit-node-icon').value = node.icon || 'user';
+    applyGenderTheme(node);
     document.getElementById('edit-node-color').value = node.color || 'emerald';
     document.getElementById('edit-node-tags').value = (node.tags || []).join(', ');
     const fieldsContainer = document.getElementById('modal-fields-container');
@@ -1318,9 +1385,12 @@
     if (!match) return;
     match.node.title = document.getElementById('edit-node-title').value.trim() || 'İsimsiz';
     match.node.subtitle = document.getElementById('edit-node-subtitle').value.trim();
+    const genderVal = document.getElementById('edit-node-gender');
+    match.node.gender = genderVal && (genderVal.value === 'female' || genderVal.value === 'male') ? genderVal.value : '';
     match.node.description = document.getElementById('edit-node-description').value.trim();
     match.node.icon = document.getElementById('edit-node-icon').value;
     match.node.color = document.getElementById('edit-node-color').value;
+    applyGenderTheme(match.node);
     const tagsInput = document.getElementById('edit-node-tags').value;
     match.node.tags = tagsInput ? tagsInput.split(',').map((t) => t.trim()).filter(Boolean) : [];
     const fieldsVal = [];
