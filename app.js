@@ -2347,31 +2347,40 @@ relsListContainer.innerHTML = '<div class="text-slate-400 py-1.5 text-center bg-
         if (false && sessionStorage.getItem('arhsAuthenticated') === '1') {
           window.enterApp();
         } else {
-          // Giris sayfasinda imlec dogrudan sifre kutusuna gelsin ve numerik klavye acilsin.
+          // Giris sayfasinda imlec sifre kutusuna gelsin; mobilde mumkunse klavye acilsin.
           (function autoFocusLogin() {
             var loginInputEl = document.getElementById('access-code-input');
             if (!loginInputEl) return;
-            function focusIt() {
-              try { loginInputEl.focus({ preventScroll: true }); } catch (e) { try { loginInputEl.focus(); } catch (e2) {} }
+
+            function unlockAndFocus() {
+              try { loginInputEl.removeAttribute('readonly'); } catch (e) {}
+              try { loginInputEl.focus({ preventScroll: true }); } catch (e) {
+                try { loginInputEl.focus(); } catch (e2) {}
+              }
             }
-            // Hemen ve coklu gecikmeli deneme: imlec sifre kutusuna gelsin.
-            // NOT: Mobil tarayicilar, kullanici etkilesimi olmadan klavyeyi programatik
-            // acmaya izin vermez; bu yuzden klavye ancak bir dokunus sonrasi gelir.
-            focusIt();
-            [0, 120, 300, 600, 1000, 1600, 2400, 3500].forEach(function(delay) {
-              setTimeout(focusIt, delay);
+
+            // Android'de readonly kaldirip focus etmek klavyeyi daha sik acar.
+            // iOS genellikle kullanici dokunusu olmadan klavyeyi yine de engeller.
+            unlockAndFocus();
+            [0, 50, 150, 300, 600, 1000].forEach(function(delay) {
+              setTimeout(unlockAndFocus, delay);
             });
-            window.addEventListener('load', focusIt);
+            window.addEventListener('pageshow', unlockAndFocus);
+            window.addEventListener('load', unlockAndFocus);
+
             var loginScreenEl = document.getElementById('login-screen');
-            if (loginScreenEl && window.matchMedia('(pointer: coarse)').matches) {
-              // Mobilde herhangi bir yere dokunuldugunda klavyeyi ac (once-lik degil kalici).
-              ['touchstart', 'touchend', 'mousedown', 'pointerdown'].forEach(function(evt) {
-                loginScreenEl.addEventListener(evt, function reopenFocus() {
-                  focusIt();
-                  try { loginInputEl.click(); } catch (e) {}
-                }, { passive: true });
+            if (loginScreenEl) {
+              function openKeyboardFromGesture() {
+                unlockAndFocus();
+              }
+              ['touchstart', 'pointerdown', 'mousedown', 'click'].forEach(function(evt) {
+                loginScreenEl.addEventListener(evt, openKeyboardFromGesture, { passive: true });
               });
             }
+
+            loginInputEl.addEventListener('focus', function() {
+              try { loginInputEl.removeAttribute('readonly'); } catch (e) {}
+            });
           })();
         }
       } catch (e) {
