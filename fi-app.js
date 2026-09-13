@@ -26,6 +26,8 @@
   const FIREBASE_PATH = 'familyTrees/default';
   // Index activityLog ile karışmasın — yalnızca FI soyağacı geçmişi
   const ACTIVITY_LOG_PATH = 'familyTrees/activityLog';
+  const LAYOUT_SNAPSHOT_PATH = 'familyTrees/layoutSnapshot';
+  const LAYOUT_SNAPSHOT_KEY = 'family_layout_snapshot_' + window.location.pathname;
   const CANVAS_SIZE_KEY = 'family_canvas_size_' + window.location.pathname;
   const PROJECT_KIND = 'familyTree';
 
@@ -67,6 +69,7 @@
   let panStartX = 0;
   let panStartY = 0;
   let selectedNodeId = null;
+  let selectedNodeIds = new Set();
   let editingNodeId = null;
   let dragEnabled = false;
   let activeTreeDrag = null;
@@ -77,6 +80,50 @@
   let mouseCanvasX = 0;
   let mouseCanvasY = 0;
   let selectedRelColor = '#8b5cf6';
+
+  // Silme tuşları: ilk tık hazırlar, ikinci tık (2.5 sn içinde) işlemi başlatır
+  const DELETE_ARM_MS = 2500;
+  let deleteArm = { key: null, until: 0, btn: null, html: null, timer: null };
+
+  function clearDeleteArm() {
+    if (deleteArm.timer) {
+      clearTimeout(deleteArm.timer);
+      deleteArm.timer = null;
+    }
+    if (deleteArm.btn && deleteArm.html != null) {
+      deleteArm.btn.innerHTML = deleteArm.html;
+      deleteArm.btn.classList.remove('ring-2', 'ring-rose-500', 'ring-offset-1');
+      deleteArm.btn.removeAttribute('data-delete-armed');
+    }
+    deleteArm.key = null;
+    deleteArm.until = 0;
+    deleteArm.btn = null;
+    deleteArm.html = null;
+  }
+
+  /** İlk tıkta false (hazırlar), aynı tuşa ikinci tıkta true döner. */
+  function confirmDeleteClick(key, evt) {
+    const btn = evt && (evt.currentTarget || (evt.target && evt.target.closest && evt.target.closest('button, [role="button"], span')));
+    const now = Date.now();
+    if (deleteArm.key === key && now < deleteArm.until) {
+      clearDeleteArm();
+      return true;
+    }
+    clearDeleteArm();
+    deleteArm.key = key;
+    deleteArm.until = now + DELETE_ARM_MS;
+    deleteArm.btn = btn || null;
+    if (btn) {
+      deleteArm.html = btn.innerHTML;
+      btn.setAttribute('data-delete-armed', '1');
+      btn.classList.add('ring-2', 'ring-rose-500', 'ring-offset-1');
+      const isIconOnly = (btn.textContent || '').trim().length <= 2;
+      btn.innerHTML = isIconOnly ? '⚠️' : '⚠️ Tekrar tıkla';
+      btn.title = 'Silmek için tekrar tıklayın';
+    }
+    deleteArm.timer = setTimeout(clearDeleteArm, DELETE_ARM_MS);
+    return false;
+  }
 
   const RELATION_COLORS = [
     { name: 'Mor', hex: '#8b5cf6' },
@@ -187,6 +234,73 @@
   function isRefUnion(u) {
     return Boolean(u && (u.personId || u.ref) && !u.person);
   }
+
+  function listRefSpouseLinks(node) {
+    if (!node) return [];
+    const seen = new Set();
+    const list = [];
+    (node.spouses || []).forEach((u) => {
+      if (!u || !(isRefUnion(u) || u.personId) || !u.personId) return;
+      if (seen.has(u.personId)) return;
+      seen.add(u.personId);
+      list.push({
+        otherId: u.personId,
+        title: unionSpouseTitle(u),
+        mirror: Boolean(u.mirror),
+        unionId: u.id
+      });
+    });
+    return list;
+  }
+
+  /** Kesikli çizgili (referans) eş bağını her iki taraftan kaldırır; ortak çocuklar tek ebeveynde kalır. */
+  window.unlinkRefSpouse = function (personId, otherId, evt) {
+    if (evt && !confirmDeleteClick('unlink-spouse:' + personId + ':' + otherId, evt)) return;
+    if (!personId || !otherId || personId === otherId) return;
+
+    const aMatch = findNodeInTree(project.trees, personId);
+    const bMatch = findNodeInTree(project.trees, otherId);
+    if (!aMatch || !bMatch) return;
+
+    const a = aMatch.node;
+    const b = bMatch.node;
+    ensureFamilyShape(a);
+    ensureFamilyShape(b);
+
+    const primaryOnA = (a.spouses || []).find((u) => !u.mirror && u.personId === otherId);
+    const primaryOnB = (b.spouses || []).find((u) => !u.mirror && u.personId === personId);
+    const primary = primaryOnA || primaryOnB;
+    const kidsOwner = primaryOnA ? a : (primaryOnB ? b : a);
+    const kids = primary ? (primary.children || []).slice() : [];
+    const aTitle = a.title || '?';
+    const bTitle = b.title || '?';
+
+    if (!confirm(
+      '"' + aTitle + '" ↔ "' + bTitle + '" bağlı eş bağı iptal edilsin mi?\n\n' +
+      'Kesikli çizgi kalkar. Ortak çocuklar varsa tek ebeveyn kaydına geçer; kartlar silinmez.'
+    )) return;
+
+    a.spouses = (a.spouses || []).filter((u) => u.personId !== otherId);
+    b.spouses = (b.spouses || []).filter((u) => u.personId !== personId);
+
+    if (kids.length) {
+      kidsOwner.children = kidsOwner.children || [];
+      kids.forEach((c) => kidsOwner.children.push(c));
+    }
+
+    saveProject();
+    recordActivity(
+      'updated',
+      'node',
+      personId,
+      aTitle,
+      'Bağlı eş bağı iptal: ' + aTitle + ' ↔ ' + bTitle
+    );
+    refreshView();
+    if (editingNodeId === personId || editingNodeId === otherId) {
+      window.openEditModal(editingNodeId);
+    }
+  };
 
   function resolveUnionSpouse(union) {
     if (!union) return null;
@@ -444,7 +558,7 @@
           </div>
           <div class="flex items-center gap-1 shrink-0">
             ${canEdit ? '<button type="button" onclick="editRecentActivity(\'' + activity.id + '\')" class="p-1.5 rounded-lg text-slate-600 hover:bg-white hover:text-cyan-700" title="Düzenle">✏️</button>' : ''}
-            ${canDelete ? '<button type="button" onclick="deleteRecentActivity(\'' + activity.id + '\')" class="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50" title="Sil">🗑️</button>' : ''}
+            ${canDelete ? '<button type="button" onclick="deleteRecentActivity(\'' + activity.id + '\', event)" class="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50" title="Sil (2 kez tıklayın)">🗑️</button>' : ''}
           </div>
         </div>
       `;
@@ -721,6 +835,166 @@
     return nodeLayouts;
   }
 
+  /** Kart / ağaç konumlarının anlık görüntüsünü toplar. */
+  function collectLayoutSnapshot() {
+    const nodes = {};
+    walkAllPersons((node) => {
+      if (!node || !node.id) return;
+      nodes[node.id] = {
+        offsetX: typeof node.offsetX === 'number' ? node.offsetX : 0,
+        offsetY: typeof node.offsetY === 'number' ? node.offsetY : 0,
+        collapsed: Boolean(node.collapsed)
+      };
+    });
+    const trees = (project.trees || []).map((tree) => ({
+      id: tree.id,
+      x: typeof tree.x === 'number' ? tree.x : 0,
+      y: typeof tree.y === 'number' ? tree.y : 0
+    }));
+    return {
+      kind: 'familyTreeLayout',
+      savedAt: new Date().toISOString(),
+      panX: panX,
+      panY: panY,
+      zoom: zoom,
+      trees: trees,
+      nodes: nodes
+    };
+  }
+
+  function applyLayoutSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') return false;
+    const treeMap = snapshot.trees || [];
+    const nodeMap = snapshot.nodes || {};
+    let applied = 0;
+
+    (project.trees || []).forEach((tree) => {
+      const saved = treeMap.find((t) => t && t.id === tree.id);
+      if (!saved) return;
+      if (typeof saved.x === 'number') tree.x = saved.x;
+      if (typeof saved.y === 'number') tree.y = saved.y;
+      applied += 1;
+    });
+
+    walkAllPersons((node) => {
+      if (!node || !node.id) return;
+      const saved = nodeMap[node.id];
+      if (!saved) return;
+      node.offsetX = typeof saved.offsetX === 'number' ? saved.offsetX : 0;
+      node.offsetY = typeof saved.offsetY === 'number' ? saved.offsetY : 0;
+      if (typeof saved.collapsed === 'boolean') node.collapsed = saved.collapsed;
+      applied += 1;
+    });
+
+    if (typeof snapshot.zoom === 'number') zoom = snapshot.zoom;
+    if (typeof snapshot.panX === 'number') panX = snapshot.panX;
+    if (typeof snapshot.panY === 'number') panY = snapshot.panY;
+
+    return applied > 0;
+  }
+
+  function flashLayoutButton(btnId, label) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    const span = btn.querySelector('span:last-child');
+    if (!span) return;
+    const prev = span.textContent;
+    span.textContent = label;
+    setTimeout(() => {
+      if (span.textContent === label) span.textContent = prev;
+    }, 1600);
+  }
+
+  /** Mevcut kart konumlarını Firebase (+ yerel) olarak kaydeder. */
+  window.saveCanvasLayout = function () {
+    const snapshot = collectLayoutSnapshot();
+    try {
+      localStorage.setItem(LAYOUT_SNAPSHOT_KEY, JSON.stringify(snapshot));
+    } catch (e) {
+      console.warn(e);
+    }
+
+    const finishOk = () => {
+      flashLayoutButton('btn-save-layout', 'Kaydedildi');
+      recordActivity('updated', 'tree', 'layout', 'Tuval düzeni', 'Kart konumları kaydedildi');
+    };
+
+    if (firebaseDatabase) {
+      firebaseDatabase.ref(LAYOUT_SNAPSHOT_PATH).set(snapshot)
+        .then(finishOk)
+        .catch((error) => {
+          console.warn('Düzen Firebase kaydı başarısız:', error);
+          alert('Firebase’e kaydedilemedi; yerel kopya alındı.\n' + (error && error.message ? error.message : ''));
+          flashLayoutButton('btn-save-layout', 'Yerel OK');
+        });
+    } else {
+      finishOk();
+      alert('Firebase bağlı değil; düzen yalnızca bu tarayıcıya kaydedildi.');
+    }
+  };
+
+  /** Son kaydedilmiş düzeni Firebase’den (yoksa yerelden) kartlara uygular. */
+  window.restoreCanvasLayout = function () {
+    const applyAndRefresh = (snapshot, source) => {
+      if (!applyLayoutSnapshot(snapshot)) {
+        alert('Uygulanacak konum bulunamadı (kayıt boş veya kartlar eşleşmiyor).');
+        return;
+      }
+      saveProject();
+      refreshView();
+      flashLayoutButton('btn-restore-layout', 'Uygulandı');
+      recordActivity(
+        'updated',
+        'tree',
+        'layout',
+        'Tuval düzeni',
+        'Son Düzen geri yüklendi (' + source + ')'
+      );
+    };
+
+    if (firebaseDatabase) {
+      firebaseDatabase.ref(LAYOUT_SNAPSHOT_PATH).once('value')
+        .then((snap) => {
+          const remote = snap.val();
+          if (remote && remote.kind === 'familyTreeLayout') {
+            applyAndRefresh(remote, 'Firebase');
+            try { localStorage.setItem(LAYOUT_SNAPSHOT_KEY, JSON.stringify(remote)); } catch (e) {}
+            return;
+          }
+          // Firebase boşsa yerel yedek
+          let local = null;
+          try { local = JSON.parse(localStorage.getItem(LAYOUT_SNAPSHOT_KEY) || 'null'); } catch (e) {}
+          if (local && local.kind === 'familyTreeLayout') {
+            applyAndRefresh(local, 'yerel');
+          } else {
+            alert('Kayıtlı düzen bulunamadı. Önce «Kaydet» ile konumları saklayın.');
+          }
+        })
+        .catch((error) => {
+          console.warn(error);
+          let local = null;
+          try { local = JSON.parse(localStorage.getItem(LAYOUT_SNAPSHOT_KEY) || 'null'); } catch (e) {}
+          if (local && local.kind === 'familyTreeLayout') {
+            applyAndRefresh(local, 'yerel');
+          } else {
+            alert('Düzen okunamadı: ' + (error && error.message ? error.message : 'bilinmeyen hata'));
+          }
+        });
+      return;
+    }
+
+    let local = null;
+    try { local = JSON.parse(localStorage.getItem(LAYOUT_SNAPSHOT_KEY) || 'null'); } catch (e) {}
+    if (local && local.kind === 'familyTreeLayout') {
+      applyAndRefresh(local, 'yerel');
+    } else {
+      alert('Kayıtlı düzen bulunamadı. Önce «Kaydet» ile konumları saklayın.');
+    }
+  };
+
+  // Geriye dönük takma ad
+  window.autoArrangeCards = window.saveCanvasLayout;
+
   function isNodeMatch(node) {
     if (!searchQuery) return false;
     const q = searchQuery.toLowerCase();
@@ -778,7 +1052,7 @@
           <div class="flex items-center gap-1 ml-2 border-l border-slate-700 pl-2">
             <button onclick="window.addChildNode('${tree.rootNode.id}')" class="p-1 hover:bg-slate-800 rounded text-emerald-400" title="Kök altına çocuk ekle">➕</button>
             <button onclick="window.renameTree('${tree.id}')" class="p-1 hover:bg-slate-800 rounded text-slate-300" title="Yeniden adlandır">✏️</button>
-            <button onclick="window.deleteTree('${tree.id}')" class="p-1 hover:bg-rose-950 rounded text-rose-400" title="Soyağacını sil">🗑️</button>
+            <button onclick="window.deleteTree('${tree.id}', event)" class="p-1 hover:bg-rose-950 rounded text-rose-400" title="Soyağacını sil (2 kez tıklayın)">🗑️</button>
           </div>
         </div>
       </div>
@@ -887,7 +1161,7 @@
             <div class="flex items-center justify-center">
               <span onclick="window.openEditRelationModal('${rel.id}')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold shadow-sm border bg-white cursor-pointer" style="border-color:${color};color:${color};">
                 🔗 <span class="truncate max-w-[90px]">${escapeHtml(rel.label || 'Bağ')}</span>
-                <span class="text-slate-400 hover:text-rose-600" onclick="event.stopPropagation(); window.deleteRelation('${rel.id}')">✕</span>
+                <span class="text-slate-400 hover:text-rose-600 cursor-pointer" onclick="event.stopPropagation(); window.deleteRelation('${rel.id}', event)" title="Sil (2 kez tıklayın)">✕</span>
               </span>
             </div>
           </foreignObject>
@@ -922,7 +1196,8 @@
       const node = layout.node;
       const theme = COLOR_PALETTE[node.color || 'emerald'] || COLOR_PALETTE.emerald;
       const isMatch = isNodeMatch(node);
-      const isSelected = selectedNodeId === node.id;
+      const isSelected = selectedNodeId === node.id || selectedNodeIds.has(node.id);
+      const isMultiSelected = selectedNodeIds.has(node.id);
       const isConnSource = isConnecting && relationConnectingSourceId === node.id;
       const isConnTargetCandidate = isConnecting && !isConnSource;
       const highlightUp = isConnTargetCandidate && (connPort === 'down' || connPort === 'cross');
@@ -937,6 +1212,21 @@
             </div>
           `).join('')}
           ${node.fields.length > FIELD_HINT_AT ? '<div class="text-[10px] text-slate-400">+' + (node.fields.length - FIELD_HINT_AT) + ' alan…</div>' : ''}
+        </div>
+      ` : '';
+
+      const refSpouseLinks = listRefSpouseLinks(node);
+      const refSpouseHtml = refSpouseLinks.length ? `
+        <div class="mt-1.5 space-y-1" onclick="event.stopPropagation()">
+          ${refSpouseLinks.map((link) => `
+            <div class="flex items-center justify-between gap-1 px-1.5 py-0.5 rounded-lg bg-rose-50 border border-rose-200">
+              <span class="truncate text-[10px] font-semibold text-rose-800" title="Kesikli çizgi ile bağlı eş">💑 ${escapeHtml(link.title)}</span>
+              <button type="button"
+                onclick="event.stopPropagation(); window.unlinkRefSpouse('${node.id}', '${link.otherId}', event)"
+                class="shrink-0 px-1 py-0.5 rounded text-rose-600 hover:bg-rose-100 font-bold text-[10px]"
+                title="Bağlı eş bağını iptal et (2 kez tıklayın)">✕</button>
+            </div>
+          `).join('')}
         </div>
       ` : '';
 
@@ -956,6 +1246,7 @@
               ? 'ring-4 ring-rose-500 shadow-xl shadow-rose-500/30 scale-[1.02] z-30 '
               : 'ring-4 ring-violet-500 shadow-xl shadow-violet-500/30 scale-[1.02] z-30 ';
       } else if (isConnTargetCandidate) cardClasses += 'ring-2 ring-dashed bg-slate-50/40 hover:scale-[1.02] cursor-pointer z-30 ';
+      else if (isMultiSelected) cardClasses += 'ring-2 ring-sky-500 shadow-md bg-sky-50/40 ';
       else if (isSelected) cardClasses += 'ring-2 ring-emerald-500 shadow-md ';
       else if (hasSearch) {
         cardClasses += isMatch
@@ -971,9 +1262,9 @@
 
       nodesHtml += `
         <div class="${cardClasses}"
-          style="left: ${layout.x}px; top: ${layout.y}px; width: ${layout.width}px; border-color: ${sourceRingColor || (isMatch ? '#f59e0b' : theme.border)};"
+          style="left: ${layout.x}px; top: ${layout.y}px; width: ${layout.width}px; border-color: ${sourceRingColor || (isMultiSelected ? '#0ea5e9' : isMatch ? '#f59e0b' : theme.border)};"
           id="node-card-${node.id}"
-          ${isConnTargetCandidate ? `onclick="window.handleTargetNodeSelect('${node.id}')"` : ''}>
+          ${isConnTargetCandidate ? `onclick="window.handleTargetNodeSelect('${node.id}')"` : `onclick="window.handleCardBodyClick(event, '${node.id}')"`}>
           <!-- Üst bağlantı: ebeveynler -->
           <div
             onclick="event.stopPropagation(); window.handleCardPortClick('${node.id}', 'up')"
@@ -999,10 +1290,11 @@
             onmousedown="window.startNodeDrag(event, '${node.id}')"
             ontouchstart="window.startTouchDrag(event, '${node.id}', null)"
             class="px-3 py-2 rounded-t-xl flex items-center justify-between border-b ${dragEnabled ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}"
-            style="background-color: ${isConnSource ? (connPort === 'up' ? '#e0e7ff' : connPort === 'down' ? '#d1fae5' : connPort === 'spouse' ? '#ffe4e6' : '#ede9fe') : isMatch ? '#fef3c7' : theme.headerBg}; border-color: ${theme.border}40;">
+            style="background-color: ${isConnSource ? (connPort === 'up' ? '#e0e7ff' : connPort === 'down' ? '#d1fae5' : connPort === 'spouse' ? '#ffe4e6' : '#ede9fe') : isMultiSelected ? '#e0f2fe' : isMatch ? '#fef3c7' : theme.headerBg}; border-color: ${theme.border}40;">
             <div class="flex items-center gap-1.5 truncate">
-              <span class="text-sm cursor-pointer" onclick="event.stopPropagation(); window.openEditModal('${node.id}')">${getIconEmoji(node.icon)}</span>
-              <span class="text-xs font-bold truncate cursor-pointer hover:underline" onclick="event.stopPropagation(); window.openEditModal('${node.id}')" style="color: ${isConnSource ? (connPort === 'up' ? '#3730a3' : connPort === 'down' ? '#065f46' : connPort === 'spouse' ? '#9f1239' : '#5b21b6') : isMatch ? '#92400e' : theme.headerText};">${escapeHtml(node.title)}</span>
+              ${isMultiSelected ? '<span class="shrink-0 w-3.5 h-3.5 rounded border-2 border-sky-600 bg-sky-500" title="Seçili"></span>' : ''}
+              <span class="text-sm cursor-pointer" onclick="event.stopPropagation(); window.handleCardBodyClick(event, '${node.id}')">${getIconEmoji(node.icon)}</span>
+              <span class="text-xs font-bold truncate cursor-pointer hover:underline" onclick="event.stopPropagation(); window.handleCardBodyClick(event, '${node.id}')" style="color: ${isConnSource ? (connPort === 'up' ? '#3730a3' : connPort === 'down' ? '#065f46' : connPort === 'spouse' ? '#9f1239' : '#5b21b6') : isMultiSelected ? '#0369a1' : isMatch ? '#92400e' : theme.headerText};">${escapeHtml(node.title)}</span>
             </div>
             <div class="flex items-center gap-1">
               ${isConnSource ? `<span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold text-white ${connPort === 'up' ? 'bg-indigo-600' : connPort === 'down' ? 'bg-emerald-600' : connPort === 'spouse' ? 'bg-rose-600' : 'bg-violet-600'}">${connPort === 'up' ? '↑ Ebeveyn' : connPort === 'down' ? '↓ Alt' : connPort === 'spouse' ? '💑 Eş' : '🔗 Kaynak'}</span>` : ''}
@@ -1019,11 +1311,12 @@
               ` : ''}
             </div>
           </div>
-          <div class="p-2.5 cursor-pointer" onclick="${isConnTargetCandidate ? `window.handleTargetNodeSelect('${node.id}')` : `window.openEditModal('${node.id}')`}">
+          <div class="p-2.5 cursor-pointer" onclick="${isConnTargetCandidate ? `window.handleTargetNodeSelect('${node.id}')` : `window.handleCardBodyClick(event, '${node.id}')`}">
             ${node.subtitle ? '<div class="text-[11px] font-medium text-slate-500 truncate">' + escapeHtml(node.subtitle) + '</div>' : ''}
             <div class="mt-1.5" onclick="event.stopPropagation()">
               ${genderSelectHtml(node.id, node.gender, true)}
             </div>
+            ${refSpouseHtml}
             ${tagsHtml}
             ${fieldsHtml}
           </div>
@@ -1035,14 +1328,14 @@
             <button onclick="event.stopPropagation(); window.addSpouseNode('${node.id}')"
               class="px-1.5 py-0.5 rounded bg-white hover:bg-rose-50 text-rose-600 border border-slate-200 font-bold" title="Yeni boş eş kartı oluştur">＋Eş</button>
             <button onclick="event.stopPropagation(); window.addChildNode('${node.id}')"
-              class="px-1.5 py-0.5 rounded bg-white hover:bg-emerald-50 text-emerald-700 border border-slate-200 font-bold" title="Öz çocuk (eş ile)">➕ Çocuk</button>
+              class="px-1.5 py-0.5 rounded bg-white hover:bg-emerald-50 text-emerald-700 border border-slate-200 font-bold" title="Birden fazla öz çocuk ekle (isim + cinsiyet)">➕ Çocuk</button>
             <button onclick="event.stopPropagation(); window.addSiblingNode('${node.id}')"
-              class="px-1.5 py-0.5 rounded bg-white hover:bg-blue-50 text-blue-700 border border-slate-200 font-bold" title="Öz kardeş (aynı anne-baba)">👥 Öz</button>
+              class="px-1.5 py-0.5 rounded bg-white hover:bg-blue-50 text-blue-700 border border-slate-200 font-bold" title="Birden fazla öz kardeş ekle">👥 Öz</button>
             <button onclick="event.stopPropagation(); window.addStepChildNode('${node.id}')"
-              class="px-1.5 py-0.5 rounded bg-white hover:bg-amber-50 text-amber-700 border border-slate-200 font-bold" title="Üvey: diğer eşin çocuğu">🔀 Üvey</button>
+              class="px-1.5 py-0.5 rounded bg-white hover:bg-amber-50 text-amber-700 border border-slate-200 font-bold" title="Birden fazla üvey çocuk ekle">🔀 Üvey</button>
             <button onclick="event.stopPropagation(); window.startRelationConnect('${node.id}', 'cross')" class="px-1.5 py-0.5 rounded bg-white hover:bg-violet-50 text-violet-700 border border-slate-200" title="Çapraz ilişki">🔗</button>
             <button onclick="event.stopPropagation(); window.openEditModal('${node.id}')" class="p-1 rounded bg-white hover:bg-slate-200 border border-slate-200">✏️</button>
-            <button onclick="event.stopPropagation(); window.deleteNode('${node.id}')" class="p-1 rounded bg-white hover:bg-rose-50 text-rose-600 border border-slate-200">🗑️</button>
+            <button onclick="event.stopPropagation(); window.deleteNode('${node.id}', event)" class="p-1 rounded bg-white hover:bg-rose-50 text-rose-600 border border-slate-200" title="Sil (2 kez tıklayın)">🗑️</button>
           </div>
         </div>
       `;
@@ -1050,7 +1343,11 @@
     nodesLayer.innerHTML = nodesHtml;
 
     const hudEl = document.getElementById('coord-hud');
-    if (hudEl) hudEl.textContent = 'X:' + Math.round((-panX) / zoom) + '  Y:' + Math.round((-panY) / zoom);
+    if (hudEl) {
+      const selCount = selectedNodeIds.size;
+      hudEl.textContent = 'X:' + Math.round((-panX) / zoom) + '  Y:' + Math.round((-panY) / zoom) +
+        (selCount ? '  ·  ' + selCount + ' seçili' : '');
+    }
 
     const gridEl = document.getElementById('grid-labels');
     if (gridEl) {
@@ -1080,7 +1377,10 @@
       const spousesHtml = (node.spouses || []).map((u) => {
         if (u.mirror) return '';
         const refTitle = isRefUnion(u) || u.personId
-          ? '<div class="text-[11px] font-bold text-rose-700">💑 ' + escapeHtml(unionSpouseTitle(u)) + ' <span class="text-[10px] font-medium text-slate-500">(bağlı eş — ebeveynleri korunur)</span></div>'
+          ? '<div class="flex items-center justify-between gap-2 text-[11px] font-bold text-rose-700">' +
+              '<span>💑 ' + escapeHtml(unionSpouseTitle(u)) + ' <span class="text-[10px] font-medium text-slate-500">(bağlı eş)</span></span>' +
+              '<button type="button" onclick="window.unlinkRefSpouse(\'' + node.id + '\', \'' + u.personId + '\', event)" class="px-1.5 py-0.5 rounded text-rose-600 hover:bg-rose-50 border border-rose-200 text-[10px]" title="Bağı iptal et (2 kez tıklayın)">✕ İptal</button>' +
+            '</div>'
           : '';
         return `
         <div class="ml-3 mt-2 border-l-2 border-rose-300 pl-3">
@@ -1107,7 +1407,7 @@
               <button onclick="window.addSpouseNode('${node.id}')" class="px-1.5 py-0.5 text-[10px] font-bold bg-rose-50 text-rose-700 rounded-lg border">💑</button>
               <button onclick="window.addChildNode('${node.id}')" class="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-50 text-emerald-700 rounded-lg border">➕</button>
               <button onclick="window.addStepChildNode('${node.id}')" class="px-1.5 py-0.5 text-[10px] font-bold bg-amber-50 text-amber-700 rounded-lg border">🔀</button>
-              <button onclick="window.deleteNode('${node.id}')" class="p-1 text-rose-500 hover:bg-rose-50 rounded-lg">🗑️</button>
+              <button onclick="window.deleteNode('${node.id}', event)" class="p-1 text-rose-500 hover:bg-rose-50 rounded-lg" title="Sil (2 kez tıklayın)">🗑️</button>
             </div>
           </div>
           ${spousesHtml}
@@ -1133,7 +1433,7 @@
             <button onclick="window.addSpouseNode('${tree.rootNode.id}')" class="px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold">💑 Eş</button>
             <button onclick="window.addChildNode('${tree.rootNode.id}')" class="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-bold">➕ Çocuk</button>
             <button onclick="window.renameTree('${tree.id}')" class="p-1 text-slate-500 hover:bg-slate-100 rounded-lg">✏️</button>
-            <button onclick="window.deleteTree('${tree.id}')" class="p-1 text-rose-500 hover:bg-rose-50 rounded-lg">🗑️</button>
+            <button onclick="window.deleteTree('${tree.id}', event)" class="p-1 text-rose-500 hover:bg-rose-50 rounded-lg" title="Soyağacını sil (2 kez tıklayın)">🗑️</button>
           </div>
         </div>
         ${renderOutlineNode(tree.rootNode)}
@@ -1206,7 +1506,8 @@
     }
   };
 
-  window.deleteTree = function (treeId) {
+  window.deleteTree = function (treeId, evt) {
+    if (evt && !confirmDeleteClick('tree:' + treeId, evt)) return;
     const tree = project.trees.find((t) => t.id === treeId);
     if (!tree) return;
     if (!confirm('"' + tree.name + '" soyağacını ve tüm kişileri silmek istediğinize emin misiniz?')) return;
@@ -1356,66 +1657,9 @@
     window.openEditModal(father.id);
   };
 
-  // ➕ Öz çocuk: eş birimine eklenir (eş yoksa önce eş oluşur); iki ebeveyne bağlanır
+  // ➕ Öz çocuk: toplu ekleme (isim + cinsiyet)
   window.addChildNode = function (personId) {
-    const match = findNodeInTree(project.trees, personId);
-    if (!match) return;
-
-    // Referanslı eşin ayna tarafındaysak çocuğu ana birime yaz
-    const mirrorRef = (match.node.spouses || []).find((u) => u.mirror && u.personId);
-    if (mirrorRef) {
-      const otherMatch = findNodeInTree(project.trees, mirrorRef.personId);
-      if (otherMatch) {
-        const primary = (otherMatch.node.spouses || []).find(
-          (u) => !u.mirror && u.personId === match.node.id
-        );
-        if (primary) {
-          const child = createPerson({ title: 'Yeni Çocuk', subtitle: 'Öz çocuk', color: 'emerald' });
-          primary.children = primary.children || [];
-          primary.children.push(child);
-          otherMatch.node.collapsed = false;
-          match.node.collapsed = false;
-          saveProject();
-          recordActivity(
-            'created',
-            'node',
-            child.id,
-            child.title,
-            'Öz çocuk: ' + otherMatch.node.title + ' + ' + match.node.title
-          );
-          refreshView();
-          window.openEditModal(child.id);
-          return;
-        }
-      }
-    }
-
-    const anchor = resolveAnchor(match);
-    let unionInfo;
-    if (match.isSpouse && match.union && !isRefUnion(match.union)) {
-      unionInfo = { union: match.union, createdSpouse: false };
-    } else {
-      unionInfo = pickUnionForChild(anchor, false);
-    }
-    if (!unionInfo) return;
-    const child = createPerson({ title: 'Yeni Çocuk', subtitle: 'Öz çocuk', color: 'emerald' });
-    unionInfo.union.children.push(child);
-    anchor.collapsed = false;
-    saveProject();
-    recordActivity(
-      'created',
-      'node',
-      child.id,
-      child.title,
-      'Öz çocuk: ' + anchor.title + ' + ' + unionSpouseTitle(unionInfo.union)
-    );
-    refreshView();
-    if (unionInfo.createdSpouse && unionInfo.union.person) {
-      alert('Eş otomatik oluşturuldu. Önce eşi, sonra çocuğu düzenleyebilirsiniz.');
-      window.openEditModal(unionInfo.union.person.id);
-    } else {
-      window.openEditModal(child.id);
-    }
+    openBulkChildrenModal(personId, 'oz');
   };
 
   // 👥 Öz kardeş: aynı anne-baba birimine (aynı union) eklenir
@@ -1430,29 +1674,13 @@
 
     // Aynı union içindeki çocuk → öz kardeş
     if (match.union && match.anchor) {
-      const sibling = createPerson({ title: 'Öz Kardeş', subtitle: 'Öz kardeş', color: 'blue' });
-      const list = match.union.children;
-      const idx = list.findIndex((c) => c.id === nodeId);
-      if (idx >= 0) list.splice(idx + 1, 0, sibling);
-      else list.push(sibling);
-      saveProject();
-      recordActivity('created', 'node', sibling.id, sibling.title, 'Öz kardeş eklendi (aynı eş birimi)');
-      refreshView();
-      window.openEditModal(sibling.id);
+      openBulkChildrenModal(nodeId, 'sibling');
       return;
     }
 
     // Doğrudan children dizisinde → kardeş
     if (match.parent) {
-      const sibling = createPerson({ title: 'Kardeş', subtitle: 'Kardeş', color: 'blue' });
-      const list = match.parent.children;
-      const idx = list.findIndex((c) => c.id === nodeId);
-      if (idx >= 0) list.splice(idx + 1, 0, sibling);
-      else list.push(sibling);
-      saveProject();
-      recordActivity('created', 'node', sibling.id, sibling.title, 'Kardeş eklendi');
-      refreshView();
-      window.openEditModal(sibling.id);
+      openBulkChildrenModal(nodeId, 'sibling');
       return;
     }
 
@@ -1462,34 +1690,244 @@
 
   // 🔀 Üvey: diğer eş birimine çocuk (aynı ata, farklı eş → üvey kardeşler)
   window.addStepChildNode = function (personId) {
+    openBulkChildrenModal(personId, 'step');
+  };
+
+  let bulkChildrenContext = null;
+
+  function openBulkChildrenModal(personId, mode) {
     const match = findNodeInTree(project.trees, personId);
     if (!match) return;
+    bulkChildrenContext = { personId: personId, mode: mode || 'oz' };
+    const label = document.getElementById('bulk-children-parent-label');
+    const titleEl = document.querySelector('#bulk-children-modal h3');
+    if (label) {
+      if (mode === 'step') {
+        label.textContent = '"' + match.node.title + '" için üvey çocuklar';
+      } else if (mode === 'sibling') {
+        label.textContent = '"' + match.node.title + '" için öz kardeşler';
+      } else {
+        label.textContent = '"' + match.node.title + '" altına çocuklar';
+      }
+    }
+    if (titleEl) {
+      titleEl.textContent = mode === 'step' ? 'Üvey Çocukları Ekle' : mode === 'sibling' ? 'Kardeşleri Ekle' : 'Çocukları Ekle';
+    }
+    const rows = document.getElementById('bulk-children-rows');
+    if (rows) {
+      rows.innerHTML = '';
+      for (let i = 0; i < 3; i++) addBulkChildRow();
+    }
+    document.getElementById('bulk-children-modal').classList.remove('hidden');
+    const firstInput = rows && rows.querySelector('input[data-bulk-name]');
+    if (firstInput) setTimeout(() => firstInput.focus(), 30);
+  }
+
+  window.closeBulkChildrenModal = function () {
+    const modal = document.getElementById('bulk-children-modal');
+    if (modal) modal.classList.add('hidden');
+    bulkChildrenContext = null;
+  };
+
+  window.addBulkChildRow = function (preset) {
+    const rows = document.getElementById('bulk-children-rows');
+    if (!rows) return;
+    const row = document.createElement('div');
+    row.className = 'grid grid-cols-[1fr_120px_36px] gap-2 items-center';
+    const gender = (preset && preset.gender) || '';
+    row.innerHTML =
+      '<input type="text" data-bulk-name placeholder="Ad Soyad" value="' + escapeHtml((preset && preset.title) || '') + '" ' +
+        'class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none" />' +
+      '<select data-bulk-gender class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">' +
+        '<option value=""' + (gender === '' ? ' selected' : '') + '>Seçilmedi</option>' +
+        '<option value="female"' + (gender === 'female' ? ' selected' : '') + '>♀ Kadın</option>' +
+        '<option value="male"' + (gender === 'male' ? ' selected' : '') + '>♂ Erkek</option>' +
+      '</select>' +
+      '<button type="button" class="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg" title="Satırı kaldır" onclick="this.parentElement.remove()">✕</button>';
+    rows.appendChild(row);
+    const nameInput = row.querySelector('[data-bulk-name]');
+    if (nameInput) {
+      nameInput.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        window.addBulkChildRow();
+        const all = rows.querySelectorAll('[data-bulk-name]');
+        const last = all[all.length - 1];
+        if (last) last.focus();
+      });
+    }
+  };
+
+  function collectBulkChildrenRows() {
+    const rows = document.getElementById('bulk-children-rows');
+    if (!rows) return [];
+    const list = [];
+    rows.querySelectorAll(':scope > div').forEach((row) => {
+      const nameInput = row.querySelector('[data-bulk-name]');
+      const genderSelect = row.querySelector('[data-bulk-gender]');
+      const title = nameInput ? String(nameInput.value || '').trim() : '';
+      if (!title) return;
+      const gender = genderSelect ? genderSelect.value : '';
+      list.push({ title: title, gender: gender === 'female' || gender === 'male' ? gender : '' });
+    });
+    return list;
+  }
+
+  function resolveOzChildTarget(personId) {
+    const match = findNodeInTree(project.trees, personId);
+    if (!match) return null;
+
+    const mirrorRef = (match.node.spouses || []).find((u) => u.mirror && u.personId);
+    if (mirrorRef) {
+      const otherMatch = findNodeInTree(project.trees, mirrorRef.personId);
+      if (otherMatch) {
+        const primary = (otherMatch.node.spouses || []).find(
+          (u) => !u.mirror && u.personId === match.node.id
+        );
+        if (primary) {
+          return {
+            kind: 'oz',
+            childrenList: () => {
+              primary.children = primary.children || [];
+              return primary.children;
+            },
+            collapseNodes: [otherMatch.node, match.node],
+            detailPrefix: 'Öz çocuk: ' + otherMatch.node.title + ' + ' + match.node.title,
+            createdSpouse: false,
+            createdSpousePerson: null
+          };
+        }
+      }
+    }
+
+    const anchor = resolveAnchor(match);
+    let unionInfo;
+    if (match.isSpouse && match.union && !isRefUnion(match.union)) {
+      unionInfo = { union: match.union, createdSpouse: false };
+    } else {
+      unionInfo = pickUnionForChild(anchor, false);
+    }
+    if (!unionInfo) return null;
+    return {
+      kind: 'oz',
+      childrenList: () => unionInfo.union.children,
+      collapseNodes: [anchor],
+      detailPrefix: 'Öz çocuk: ' + anchor.title + ' + ' + unionSpouseTitle(unionInfo.union),
+      createdSpouse: Boolean(unionInfo.createdSpouse),
+      createdSpousePerson: unionInfo.createdSpouse && unionInfo.union.person ? unionInfo.union.person : null
+    };
+  }
+
+  function resolveStepChildTarget(personId) {
+    const match = findNodeInTree(project.trees, personId);
+    if (!match) return null;
 
     let anchor = resolveAnchor(match);
     let currentUnionId = null;
 
     if (match.union && match.anchor && !match.isSpouse) {
-      // Bir çocuktan üvey kardeş ekleniyor
       anchor = match.anchor;
       currentUnionId = match.union.id;
     } else if (match.isSpouse && match.union) {
-      // Eş kartından: bu eş dışındaki birime veya yeni eşe
       currentUnionId = match.union.id;
     }
 
     const step = pickOtherUnionForStep(anchor, currentUnionId);
-    if (!step) return;
-    const child = createPerson({ title: 'Üvey çocuk', subtitle: 'Üvey', color: 'amber', icon: 'user' });
-    step.union.children.push(child);
-    anchor.collapsed = false;
+    if (!step) return null;
+    return {
+      kind: 'step',
+      childrenList: () => step.union.children,
+      collapseNodes: [anchor],
+      detailPrefix: 'Üvey çocuk: ' + anchor.title + ' + ' + (step.union.person ? step.union.person.title : 'Diğer eş'),
+      createdSpouse: Boolean(step.createdSpouse),
+      createdSpousePerson: step.createdSpouse && step.union.person ? step.union.person : null
+    };
+  }
+
+  function resolveSiblingTarget(personId) {
+    const match = findNodeInTree(project.trees, personId);
+    if (!match) return null;
+    if (match.union && match.anchor) {
+      return {
+        kind: 'sibling',
+        childrenList: () => match.union.children,
+        insertAfterId: personId,
+        collapseNodes: [match.anchor],
+        detailPrefix: 'Öz kardeş eklendi (aynı eş birimi)',
+        createdSpouse: false,
+        createdSpousePerson: null,
+        subtitle: 'Öz kardeş'
+      };
+    }
+    if (match.parent) {
+      return {
+        kind: 'sibling',
+        childrenList: () => match.parent.children,
+        insertAfterId: personId,
+        collapseNodes: [match.parent],
+        detailPrefix: 'Kardeş eklendi',
+        createdSpouse: false,
+        createdSpousePerson: null,
+        subtitle: 'Kardeş'
+      };
+    }
+    return null;
+  }
+
+  window.submitBulkChildren = function () {
+    if (!bulkChildrenContext) return;
+    const entries = collectBulkChildrenRows();
+    if (!entries.length) {
+      alert('En az bir çocuk için isim girin.');
+      return;
+    }
+
+    const mode = bulkChildrenContext.mode || 'oz';
+    let target = null;
+    if (mode === 'step') target = resolveStepChildTarget(bulkChildrenContext.personId);
+    else if (mode === 'sibling') target = resolveSiblingTarget(bulkChildrenContext.personId);
+    else target = resolveOzChildTarget(bulkChildrenContext.personId);
+    if (!target) return;
+
+    const list = target.childrenList();
+    const created = [];
+    entries.forEach((entry) => {
+      const child = createPerson({
+        title: entry.title,
+        subtitle: target.subtitle || (mode === 'step' ? 'Üvey' : mode === 'sibling' ? 'Öz kardeş' : 'Öz çocuk'),
+        gender: entry.gender || '',
+        color: mode === 'step' ? 'amber' : 'emerald',
+        icon: 'user'
+      });
+      applyGenderTheme(child);
+      if (target.insertAfterId) {
+        const idx = list.findIndex((c) => c.id === target.insertAfterId);
+        if (idx >= 0) {
+          list.splice(idx + 1 + created.length, 0, child);
+        } else {
+          list.push(child);
+        }
+      } else {
+        list.push(child);
+      }
+      created.push(child);
+      recordActivity('created', 'node', child.id, child.title, target.detailPrefix);
+    });
+
+    (target.collapseNodes || []).forEach((n) => {
+      if (n) n.collapsed = false;
+    });
+
     saveProject();
-    recordActivity('created', 'node', child.id, child.title, 'Üvey çocuk: ' + anchor.title + ' + ' + (step.union.person.title || 'Diğer eş'));
+    window.closeBulkChildrenModal();
     refreshView();
-    if (step.createdSpouse) {
-      alert('Üvey için yeni eş oluşturuldu. Eşi düzenleyip çocuğu kaydedin.');
-      window.openEditModal(step.union.person.id);
-    } else {
-      window.openEditModal(child.id);
+
+    if (target.createdSpouse && target.createdSpousePerson) {
+      alert(
+        created.length + ' çocuk eklendi. Eş otomatik oluşturuldu — isterseniz eş kartını da düzenleyin.\n' +
+        'Diğer çocuk bilgileri ilgili kartlardan tamamlanabilir.'
+      );
+      window.openEditModal(target.createdSpousePerson.id);
     }
   };
 
@@ -1636,7 +2074,8 @@
     project.trees = project.trees.filter((t) => t.id !== tree.id);
   }
 
-  window.deleteNode = function (nodeId) {
+  window.deleteNode = function (nodeId, evt) {
+    if (evt && !confirmDeleteClick('node:' + nodeId, evt)) return;
     const match = findNodeInTree(project.trees, nodeId);
     if (!match) return;
 
@@ -1886,10 +2325,34 @@
               </div>
               <div class="flex items-center gap-1 shrink-0">
                 <button type="button" onclick="window.openEditRelationModal('${r.id}')" class="p-1">✏️</button>
-                <button type="button" onclick="window.deleteRelation('${r.id}')" class="p-1 text-rose-600">🗑️</button>
+                <button type="button" onclick="window.deleteRelation('${r.id}', event)" class="p-1 text-rose-600" title="Sil (2 kez tıklayın)">🗑️</button>
               </div>
             </div>`;
         }).join('');
+      }
+    }
+
+    const refLinks = listRefSpouseLinks(node);
+    const spouseBadge = document.getElementById('modal-node-spouse-badge');
+    const spouseList = document.getElementById('modal-node-spouse-list');
+    if (spouseBadge) spouseBadge.textContent = String(refLinks.length);
+    if (spouseList) {
+      if (refLinks.length === 0) {
+        spouseList.innerHTML = '<div class="text-slate-400 py-1.5 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">Kesikli çizgi ile bağlı eş yok.</div>';
+      } else {
+        spouseList.innerHTML = refLinks.map((link) => `
+          <div class="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-rose-50 border border-rose-200">
+            <div class="flex items-center gap-1.5 truncate">
+              <span>💑</span>
+              <span class="font-bold text-rose-800 truncate">${escapeHtml(link.title)}</span>
+              <span class="text-slate-500">(bağlı eş)</span>
+            </div>
+            <button type="button"
+              onclick="window.unlinkRefSpouse('${nodeId}', '${link.otherId}', event)"
+              class="shrink-0 px-2 py-1 rounded-lg text-rose-700 hover:bg-rose-100 border border-rose-200 font-bold text-[10px]"
+              title="Bağı iptal et (2 kez tıklayın)">✕ İptal</button>
+          </div>
+        `).join('');
       }
     }
 
@@ -1934,8 +2397,9 @@
     refreshView();
   };
 
-  window.deleteCurrentModalNode = function () {
+  window.deleteCurrentModalNode = function (evt) {
     if (!editingNodeId) return;
+    if (!confirmDeleteClick('modal-node:' + editingNodeId, evt)) return;
     const id = editingNodeId;
     closeModal();
     window.deleteNode(id);
@@ -1944,7 +2408,45 @@
   window.closeModal = function () {
     document.getElementById('node-modal').classList.add('hidden');
     editingNodeId = null;
+  };
+
+  function isMultiSelectModifier(e) {
+    return Boolean(e && (e.ctrlKey || e.metaKey));
+  }
+
+  function clearNodeSelection(rerender) {
+    if (!selectedNodeIds.size && !selectedNodeId) return;
+    selectedNodeIds.clear();
     selectedNodeId = null;
+    if (rerender !== false) renderCanvas();
+  }
+
+  window.toggleNodeMultiSelect = function (nodeId) {
+    if (!nodeId) return;
+    if (selectedNodeIds.has(nodeId)) {
+      selectedNodeIds.delete(nodeId);
+      if (selectedNodeId === nodeId) selectedNodeId = selectedNodeIds.size ? Array.from(selectedNodeIds)[0] : null;
+    } else {
+      selectedNodeIds.add(nodeId);
+      selectedNodeId = nodeId;
+    }
+    renderCanvas();
+  };
+
+  window.handleCardBodyClick = function (e, nodeId) {
+    if (!nodeId) return;
+    if (e) {
+      e.stopPropagation();
+      if (isMultiSelectModifier(e)) {
+        e.preventDefault();
+        window.toggleNodeMultiSelect(nodeId);
+        return;
+      }
+    }
+    // Normal tık: tek seçim + düzenleme
+    selectedNodeIds.clear();
+    selectedNodeIds.add(nodeId);
+    window.openEditModal(nodeId);
   };
 
   window.handleZoom = function (delta) {
@@ -2104,19 +2606,49 @@
   };
 
   window.startNodeDrag = function (e, nodeId) {
+    if (isMultiSelectModifier(e)) {
+      e.stopPropagation();
+      e.preventDefault();
+      window.toggleNodeMultiSelect(nodeId);
+      return;
+    }
     if (!dragEnabled) return;
     const match = findNodeInTree(project.trees, nodeId);
     if (!match) return;
-    // Her kart yalnızca kendi offset'ini taşır; diğer kartlar yerinde kalır
     e.stopPropagation();
     e.preventDefault();
-    const startOffsetX = match.node.offsetX || 0;
-    const startOffsetY = match.node.offsetY || 0;
+
+    // Seçili gruptaysa hepsini birlikte taşı
+    const moveIds = (selectedNodeIds.has(nodeId) && selectedNodeIds.size > 1)
+      ? Array.from(selectedNodeIds)
+      : [nodeId];
+    if (!selectedNodeIds.has(nodeId)) {
+      selectedNodeIds.clear();
+      selectedNodeIds.add(nodeId);
+      selectedNodeId = nodeId;
+    }
+
+    const movers = [];
+    moveIds.forEach((id) => {
+      const m = findNodeInTree(project.trees, id);
+      if (!m || !m.node) return;
+      movers.push({
+        node: m.node,
+        startOffsetX: m.node.offsetX || 0,
+        startOffsetY: m.node.offsetY || 0
+      });
+    });
+    if (!movers.length) return;
+
     const mouseStartX = e.clientX;
     const mouseStartY = e.clientY;
     const handleMove = (moveEvt) => {
-      match.node.offsetX = Math.round(startOffsetX + (moveEvt.clientX - mouseStartX) / zoom);
-      match.node.offsetY = Math.round(startOffsetY + (moveEvt.clientY - mouseStartY) / zoom);
+      const dx = (moveEvt.clientX - mouseStartX) / zoom;
+      const dy = (moveEvt.clientY - mouseStartY) / zoom;
+      movers.forEach((item) => {
+        item.node.offsetX = Math.round(item.startOffsetX + dx);
+        item.node.offsetY = Math.round(item.startOffsetY + dy);
+      });
       renderCanvas();
     };
     const handleUp = () => {
@@ -2290,6 +2822,7 @@
 
     container.addEventListener('mousedown', (e) => {
       if (isCanvasInteractiveTarget(e.target)) return;
+      if (selectedNodeIds.size || selectedNodeId) clearNodeSelection(true);
       isPanning = true;
       panStartX = e.clientX - panX;
       panStartY = e.clientY - panY;
@@ -2404,6 +2937,9 @@
       if (relationConnectingSourceId) cancelRelationConnect();
       else if (document.getElementById('relation-modal') && !document.getElementById('relation-modal').classList.contains('hidden')) closeRelationModal();
       else if (document.getElementById('recent-actions-modal') && !document.getElementById('recent-actions-modal').classList.contains('hidden')) closeRecentActionsModal();
+      else if (document.getElementById('bulk-children-modal') && !document.getElementById('bulk-children-modal').classList.contains('hidden')) closeBulkChildrenModal();
+      else if (document.getElementById('node-modal') && !document.getElementById('node-modal').classList.contains('hidden')) closeModal();
+      else if (selectedNodeIds.size) clearNodeSelection(true);
       else closeModal();
     }
   });
@@ -2424,9 +2960,10 @@
     if (activity.entityType === 'tree') window.renameTree(activity.entityId);
     if (activity.entityType === 'relation') window.openEditRelationModal(activity.entityId);
   };
-  window.deleteRecentActivity = function (activityId) {
+  window.deleteRecentActivity = function (activityId, evt) {
     const activity = recentActivities.find((item) => item.id === activityId);
     if (!activity || activity.action === 'deleted' || !findActivityEntity(activity)) return;
+    if (evt && !confirmDeleteClick('activity:' + activityId, evt)) return;
     if (!confirm('"' + activity.entityName + '" kaydını silmek istediğinize emin misiniz?')) return;
     if (activity.entityType === 'node') window.deleteNode(activity.entityId);
     if (activity.entityType === 'tree') window.deleteTree(activity.entityId);
@@ -2828,7 +3365,7 @@
               </div>
               <div class="flex gap-1 shrink-0">
                 <button type="button" onclick="window.openRelationModal('${r.id}')">✏️</button>
-                <button type="button" onclick="window.deleteRelation('${r.id}')" class="text-rose-600">🗑️</button>
+                <button type="button" onclick="window.deleteRelation('${r.id}', event)" class="text-rose-600" title="Sil (2 kez tıklayın)">🗑️</button>
               </div>
             </div>`;
         }).join('');
@@ -2885,14 +3422,16 @@
     refreshView();
   };
 
-  window.deleteCurrentEditingRelation = function () {
+  window.deleteCurrentEditingRelation = function (evt) {
     const editId = document.getElementById('rel-edit-id').value;
     if (!editId) return;
+    if (!confirmDeleteClick('rel-edit:' + editId, evt)) return;
     window.deleteRelation(editId);
     closeRelationModal();
   };
 
-  window.deleteRelation = function (relId) {
+  window.deleteRelation = function (relId, evt) {
+    if (evt && !confirmDeleteClick('relation:' + relId, evt)) return;
     if (!confirm('Bu çapraz bağlantıyı silmek istediğinize emin misiniz?')) return;
     const relation = (project.relations || []).find((item) => item.id === relId);
     if (!relation) return;
