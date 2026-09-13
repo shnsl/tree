@@ -2,98 +2,27 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#C4047E" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="description" content="FI" />
   <title>FI</title>
+  <link rel="icon" type="image/png" href="./icons/icon-192.png" />
   <script src="./app-config.js"></script>
+  <link rel="manifest" id="dynamic-manifest" href="./manifest.webmanifest" />
   <script src="./head-init.js"></script>
-  <style>
-    :root {
-      --brand-font: 'Norwester';
-      --wp-bg: #ffffff;
-      --wp-bar-bg: #ffffff;
-      --wp-border: #e2e8f0;
-      --wp-text: #0f172a;
-    }
-    /* Koyu mod: index.html ile ayni degerler */
-    body.dark-mode {
-      --wp-bg: #0f172a;
-      --wp-bar-bg: #1e293b;
-      --wp-border: #334155;
-      --wp-text: #e2e8f0;
-    }
-
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; height: 100%; }
-    body {
-      background: var(--wp-bg);
-      color: var(--wp-text);
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-      transition: background-color 0.3s ease, color 0.3s ease;
-    }
-    /* Ust marka cubugu (index.html ile ayni gorunum) */
-    .brand-bar {
-      width: 100%;
-      background: var(--wp-bar-bg);
-      border-bottom: 1px solid var(--wp-border);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 6px 16px;
-      transition: background-color 0.3s ease, border-color 0.3s ease;
-    }
-    .brand-bar img {
-      width: 48px;
-      height: 48px;
-      border-radius: 10px;
-      object-fit: cover;
-      display: block;
-    }
-    .brand-bar .spacer { display: inline-block; width: 14px; }
-    .brand-bar .letter {
-      font-size: 25px;
-      font-weight: bold;
-      font-family: var(--brand-font, 'Norwester'), system-ui, sans-serif;
-      color: var(--wp-text);
-      display: inline-block;
-      transition: color 0.3s ease;
-    }
-    .brand-bar .letter.l1, .brand-bar .letter.l2, .brand-bar .letter.l3 { letter-spacing: 32px; }
-    .brand-bar .letter.l4 { letter-spacing: 12px; }
-
-
-    /* FI alani */
-    .workspace { height: calc(100% - 62px); width: 100%; }
-  </style>
-  <script>
-    // Marka fontunu (ARSH yazi tipi) ve temayi index.html ile ayni sekilde uygula.
-    (function () {
-      try {
-        var cfg = self.PWA_CONFIG || {};
-        var rs = document.documentElement.style;
-
-        // 1) Koyu / acik mod: ayni localStorage anahtari kullanilir.
-        var savedTheme = null;
-        try { savedTheme = localStorage.getItem('theme-preference'); } catch (e) {}
-        // index.html ile ayni mantik: 'light' acikca secilmediyse koyu mod.
-        if (savedTheme !== 'light') {
-          document.documentElement.classList.add('pre-dark');
-        }
-
-        // 2) Marka fontu: FONTS.BRAND -> ./fonts/<file>
-        var brand = (cfg.FONTS && cfg.FONTS.BRAND) || {};
-        if (cfg.BRAND_FONT) rs.setProperty('--brand-font', cfg.BRAND_FONT);
-        if (brand && brand.name && brand.file) {
-          var face = new FontFace(brand.name, 'url(./fonts/' + brand.file + ')', { weight: 'normal', style: 'normal', display: 'swap' });
-          document.fonts.add(face);
-          face.load().catch(function(){});
-          rs.setProperty('--brand-font', brand.name);
-        }
-      } catch (e) {}
-    })();
-  </script>
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="./fonts-init.js"></script>
 </head>
-<body>
-  <!-- Ayrı Marka Cubugu: ikon ve ARSH yazisi her ekranda ortada -->
+<body class="w-screen h-screen overflow-hidden bg-slate-100 text-slate-800 flex flex-col select-none">
+  <!-- Ayrı Marka Başlık Çubuğu: index.html ile aynı görünüm -->
   <div class="brand-bar w-full bg-white border-b border-slate-200 flex items-center justify-center py-1.5 px-4 transition-colors">
     <a href="./index.html" onclick="window.toggleFiPage(event)" style="cursor:pointer;" title="Ana sayfaya don">
       <img src="./icons/icon-192.png" alt="ARSH" class="w-12 h-12 rounded-lg object-cover" title="Ana sayfaya don" />
@@ -107,18 +36,28 @@
     <span style="font-size: 25px; font-weight: bold;font-family: var(--brand-font, 'Norwester'), sans-serif;letter-spacing: 32px;">R</span>
     <span style="font-size: 25px; font-weight: bold;font-family: var(--brand-font, 'Norwester'), sans-serif;letter-spacing: 32px;">S</span>
     <span style="font-size: 25px; font-weight: bold;font-family: var(--brand-font, 'Norwester'), sans-serif;letter-spacing: 32px;">H</span>
-    </div>
+  </div>
 
-  <!-- FI sayfa alani -->
-  <main class="workspace" aria-label="FI"></main>
+  <!-- Tuş alanı: index.html header ile aynı iskelet, içerik sonra eklenecek -->
+  <header class="bg-white border-b border-slate-200 px-4 py-2.5 flex flex-wrap items-center justify-between relative z-30 shadow-xs gap-3 transition-colors" aria-label="FI araç çubuğu">
+    <div class="flex items-center gap-2 sm:gap-3 flex-wrap"></div>
+    <div class="flex items-center gap-2"></div>
+  </header>
+
+  <!-- Ana alan: index.html tuval bölgesi ile aynı iskelet, içerik sonra eklenecek -->
+  <main class="flex-1 relative overflow-hidden bg-slate-100 transition-colors" aria-label="FI">
+    <div
+      id="fi-workspace"
+      class="absolute inset-0 overflow-hidden cursor-default"
+      style="background-image: radial-gradient(var(--bg-canvas-dot) 1px, transparent 1px); background-color: var(--bg-canvas); background-size: 24px 24px;"
+    ></div>
+  </main>
 
   <script>
-    // head'de <body> hazir olmadan class eklenemez; burada body'e uygula.
     (function () {
       try {
-        if (document.documentElement.classList.contains('pre-dark')) {
-          document.body.classList.add('dark-mode');
-        }
+        var saved = localStorage.getItem('theme-preference');
+        if (saved !== 'light') document.body.classList.add('dark-mode');
       } catch (e) {}
     })();
   </script>
