@@ -226,12 +226,15 @@
           </div>
 
           <div class="pt-3 border-t border-slate-100">
-            <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center justify-between mb-2 gap-2 flex-wrap">
               <label class="font-semibold text-slate-700 flex items-center gap-1.5">
                 <span>🔗 Çapraz İlişkiler</span>
                 <span id="modal-node-rel-badge" class="px-1.5 py-0.2 rounded-full text-[10px] bg-violet-100 text-violet-700 font-bold">0</span>
               </label>
-              <button type="button" onclick="startRelationFromCurrentModalNode()" class="text-xs text-violet-600 font-bold hover:text-violet-700">➕ Bu kişiden ilişki bağla</button>
+              <div class="flex items-center gap-2">
+                <button type="button" onclick="detachAllCurrentModalLinks()" class="text-xs text-amber-700 font-bold hover:text-amber-800 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg" title="Ebeveyn, eş, çocuk ve çapraz tüm bağları koparır; kişi kartı kalır">⛓️‍💥 Tüm bağları kopar</button>
+                <button type="button" onclick="startRelationFromCurrentModalNode()" class="text-xs text-violet-600 font-bold hover:text-violet-700">➕ Bu kişiden ilişki bağla</button>
+              </div>
             </div>
             <div id="modal-node-relations-list" class="space-y-1.5 text-[11px] max-h-32 overflow-y-auto custom-scroll"></div>
           </div>
@@ -322,6 +325,6 @@
   </main>
 
   <script src="./firebase-config.js"></script>
-  <script src="./fi-app.js?v=25"></script>
+  <script src="./fi-app.js?v=26"></script>
 </body>
 </html>

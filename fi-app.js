@@ -1482,6 +1482,129 @@
     refreshView();
   };
 
+  function materializeReleasedFamily(unions, directKids, nearTree) {
+    (unions || []).forEach((u) => {
+      if (!u || !u.person) return;
+      const spouseRoot = u.person;
+      ensureFamilyShape(spouseRoot);
+      (u.children || []).forEach((c) => {
+        spouseRoot.children = spouseRoot.children || [];
+        spouseRoot.children.push(c);
+      });
+      addNearbyTree(spouseRoot, nearTree, ' (ayrılan)');
+    });
+    (directKids || []).forEach((c) => addNearbyTree(c, nearTree, ' (ayrılan)'));
+  }
+
+  /** Kişiyi silmeden tüm aile + çapraz bağları koparır; kart tek başına kalır. */
+  window.detachAllNodeLinks = function (nodeId) {
+    const match = findNodeInTree(project.trees, nodeId);
+    if (!match) return false;
+
+    const node = match.node;
+    const tree = match.tree;
+    const unions = (node.spouses || []).slice();
+    const directKids = (node.children || []).slice();
+    const relCount = (project.relations || []).filter(
+      (r) => r.sourceNodeId === node.id || r.targetNodeId === node.id
+    ).length;
+    const hasFamily =
+      unions.length > 0 ||
+      directKids.length > 0 ||
+      match.isSpouse ||
+      match.parent ||
+      match.union ||
+      match.anchor;
+
+    if (!hasFamily && relCount === 0) {
+      alert('Bu kişinin koparılacak bağı yok.');
+      return false;
+    }
+
+    if (!confirm(
+      '"' + node.title + '" için tüm bağlar koparılsın mı?\n\n' +
+      '• Ebeveyn / eş / çocuk bağları kesilir\n' +
+      '• Çapraz ilişkiler silinir\n' +
+      '• Bu kart ve diğer kişiler silinmez'
+    )) return false;
+
+    node.spouses = [];
+    node.children = [];
+
+    if (match.isSpouse && match.union && match.anchor) {
+      const kids = (match.union.children || []).slice();
+      match.anchor.spouses = (match.anchor.spouses || []).filter((u) => u.id !== match.union.id);
+      match.anchor.children = match.anchor.children || [];
+      kids.forEach((c) => match.anchor.children.push(c));
+      materializeReleasedFamily(unions, directKids, tree);
+      addNearbyTree(node, tree, ' (bağsız)');
+    } else if (match.union && match.anchor) {
+      match.union.children = (match.union.children || []).filter((c) => c.id !== node.id);
+      materializeReleasedFamily(unions, directKids, tree);
+      addNearbyTree(node, tree, ' (bağsız)');
+    } else if (match.parent) {
+      match.parent.children = (match.parent.children || []).filter((c) => c.id !== node.id);
+      (match.parent.spouses || []).forEach((u) => {
+        u.children = (u.children || []).filter((c) => c.id !== node.id);
+      });
+      materializeReleasedFamily(unions, directKids, tree);
+      addNearbyTree(node, tree, ' (bağsız)');
+    } else {
+      // Kök: diğerleri ağaçta kalsın, bu kişi ayrı bağsız karta çıksın
+      if (unions.length > 0) {
+        const first = unions[0];
+        const newRoot = first.person;
+        if (newRoot) {
+          ensureFamilyShape(newRoot);
+          (first.children || []).forEach((c) => {
+            newRoot.children = newRoot.children || [];
+            newRoot.children.push(c);
+          });
+          directKids.forEach((c) => {
+            newRoot.children = newRoot.children || [];
+            newRoot.children.push(c);
+          });
+          tree.rootNode = newRoot;
+          for (let i = 1; i < unions.length; i++) {
+            const u = unions[i];
+            if (!u || !u.person) continue;
+            ensureFamilyShape(u.person);
+            (u.children || []).forEach((c) => {
+              u.person.children = u.person.children || [];
+              u.person.children.push(c);
+            });
+            addNearbyTree(u.person, tree, ' (ayrılan)');
+          }
+          addNearbyTree(node, tree, ' (bağsız)');
+        }
+      } else if (directKids.length > 0) {
+        tree.rootNode = directKids[0];
+        for (let i = 1; i < directKids.length; i++) {
+          addNearbyTree(directKids[i], tree, ' (ayrılan)');
+        }
+        addNearbyTree(node, tree, ' (bağsız)');
+      }
+      // Zaten yalnız kökse yalnızca çapraz ilişkiler temizlenir
+    }
+
+    project.relations = (project.relations || []).filter(
+      (r) => r.sourceNodeId !== node.id && r.targetNodeId !== node.id
+    );
+
+    saveProject();
+    recordActivity('updated', 'node', node.id, node.title, 'Tüm bağlar koparıldı');
+    return true;
+  };
+
+  window.detachAllCurrentModalLinks = function () {
+    if (!editingNodeId) return;
+    const id = editingNodeId;
+    if (!window.detachAllNodeLinks(id)) return;
+    closeModal();
+    refreshView();
+    window.openEditModal(id);
+  };
+
   window.toggleNodeCollapse = function (nodeId) {
     const match = findNodeInTree(project.trees, nodeId);
     if (!match) return;
