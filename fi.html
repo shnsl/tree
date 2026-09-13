@@ -30,7 +30,35 @@
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
       transition: background-color 0.3s ease, color 0.3s ease;
     }
-
+    /* Ust marka cubugu (index.html ile ayni gorunum) */
+    .brand-bar {
+      width: 100%;
+      background: var(--wp-bar-bg);
+      border-bottom: 1px solid var(--wp-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 16px;
+      transition: background-color 0.3s ease, border-color 0.3s ease;
+    }
+    .brand-bar img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      display: block;
+    }
+    .brand-bar .spacer { display: inline-block; width: 14px; }
+    .brand-bar .letter {
+      font-size: 25px;
+      font-weight: bold;
+      font-family: var(--brand-font, 'Norwester'), system-ui, sans-serif;
+      color: var(--wp-text);
+      display: inline-block;
+      transition: color 0.3s ease;
+    }
+    .brand-bar .letter.l1, .brand-bar .letter.l2, .brand-bar .letter.l3 { letter-spacing: 32px; }
+    .brand-bar .letter.l4 { letter-spacing: 12px; }
 
 
     /* FI alani */
