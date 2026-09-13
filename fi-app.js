@@ -828,9 +828,22 @@
   };
 
   let touchDragState = null;
+  let suppressNextTouchClick = false;
+  let touchPanStart = null;
+  let pinchStart = null;
+
+  function isCanvasInteractiveTarget(target) {
+    if (!target || !target.closest) return false;
+    return Boolean(
+      target.closest('[id^="node-card-"]') ||
+      target.closest('[data-tree-id]') ||
+      target.closest('button, input, select, a, textarea')
+    );
+  }
+
   window.startTouchDrag = function (e, nodeId, treeId) {
     if (!dragEnabled) return;
-    if (e.touches.length !== 1 || e.target.closest('button, input, select, a')) {
+    if (e.touches.length !== 1 || e.target.closest('button, input, select, a, textarea')) {
       touchDragState = null;
       return;
     }
@@ -856,16 +869,23 @@
         moved: false
       };
     }
+    touchPanStart = null;
+    isPanning = false;
     e.stopPropagation();
   };
 
   window.addEventListener('touchmove', (e) => {
-    if (!touchDragState || e.touches.length !== 1) return;
+    if (!touchDragState) return;
+    if (e.touches.length !== 1) {
+      touchDragState = null;
+      return;
+    }
     const touch = e.touches[0];
     const dx = touch.clientX - touchDragState.startTouchX;
     const dy = touch.clientY - touchDragState.startTouchY;
     if (!touchDragState.moved && Math.hypot(dx, dy) < 6) return;
     touchDragState.moved = true;
+    suppressNextTouchClick = true;
     e.preventDefault();
     if (touchDragState.type === 'tree') {
       touchDragState.tree.x = Math.round(touchDragState.startX + dx / zoom);
@@ -878,17 +898,39 @@
   }, { passive: false });
 
   window.addEventListener('touchend', () => {
-    if (touchDragState && touchDragState.moved) saveProject();
+    if (!touchDragState) return;
+    const moved = touchDragState.moved;
+    touchDragState = null;
+    if (moved) saveProject();
+  });
+
+  window.addEventListener('touchcancel', () => {
     touchDragState = null;
   });
 
-  // Tuval kaydırma (pan)
+  document.addEventListener('click', (e) => {
+    if (!suppressNextTouchClick) return;
+    suppressNextTouchClick = false;
+    e.preventDefault();
+    e.stopPropagation();
+  }, true);
+
+  // Tuval kaydırma (pan) — boş alana dokununca; katmanlar inset-0 olduğu için kart/başlık seçicisi kullanılır
   (function setupPanZoom() {
     const container = document.getElementById('canvas-container');
     if (!container) return;
 
+    const getTouchCenter = (touches) => ({
+      x: (touches[0].clientX + touches[1].clientX) / 2,
+      y: (touches[0].clientY + touches[1].clientY) / 2
+    });
+    const getTouchDistance = (touches) => Math.hypot(
+      touches[1].clientX - touches[0].clientX,
+      touches[1].clientY - touches[0].clientY
+    );
+
     container.addEventListener('mousedown', (e) => {
-      if (e.target.closest('#nodes-layer, #tree-headers-layer, button, a, input')) return;
+      if (isCanvasInteractiveTarget(e.target)) return;
       isPanning = true;
       panStartX = e.clientX - panX;
       panStartY = e.clientY - panY;
@@ -921,39 +963,67 @@
       renderCanvas();
     }, { passive: false });
 
-    let pinchStartDist = 0;
-    let pinchStartZoom = 1;
     container.addEventListener('touchstart', (e) => {
       if (e.touches.length === 2) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        pinchStartDist = Math.hypot(dx, dy);
-        pinchStartZoom = zoom;
-      } else if (e.touches.length === 1 && !e.target.closest('#nodes-layer, #tree-headers-layer, button')) {
-        isPanning = true;
-        panStartX = e.touches[0].clientX - panX;
-        panStartY = e.touches[0].clientY - panY;
+        const center = getTouchCenter(e.touches);
+        const rect = container.getBoundingClientRect();
+        pinchStart = {
+          distance: getTouchDistance(e.touches),
+          zoom: zoom,
+          canvasX: (center.x - rect.left - panX) / zoom,
+          canvasY: (center.y - rect.top - panY) / zoom
+        };
+        touchPanStart = null;
+        isPanning = false;
+        e.preventDefault();
+        return;
       }
-    }, { passive: true });
+
+      if (touchDragState) return;
+
+      if (e.touches.length === 1 && !isCanvasInteractiveTarget(e.target)) {
+        touchPanStart = {
+          x: e.touches[0].clientX - panX,
+          y: e.touches[0].clientY - panY
+        };
+        isPanning = true;
+        e.preventDefault();
+      }
+    }, { passive: false });
 
     container.addEventListener('touchmove', (e) => {
-      if (e.touches.length === 2 && pinchStartDist) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        const dist = Math.hypot(dx, dy);
-        zoom = Math.min(2.5, Math.max(0.25, pinchStartZoom * (dist / pinchStartDist)));
-        renderCanvas();
-      } else if (isPanning && e.touches.length === 1) {
-        panX = e.touches[0].clientX - panStartX;
-        panY = e.touches[0].clientY - panStartY;
-        renderCanvas();
-      }
-    }, { passive: true });
+      if (touchDragState) return;
 
-    container.addEventListener('touchend', () => {
-      isPanning = false;
-      pinchStartDist = 0;
-    });
+      if (e.touches.length === 2 && pinchStart) {
+        const center = getTouchCenter(e.touches);
+        const rect = container.getBoundingClientRect();
+        const nextZoom = Math.max(0.25, Math.min(2.5,
+          Math.round(pinchStart.zoom * getTouchDistance(e.touches) / pinchStart.distance * 100) / 100));
+        zoom = nextZoom;
+        panX = Math.round(center.x - rect.left - pinchStart.canvasX * zoom);
+        panY = Math.round(center.y - rect.top - pinchStart.canvasY * zoom);
+        const zoomText = document.getElementById('zoom-text');
+        if (zoomText) zoomText.textContent = Math.round(zoom * 100) + '%';
+        renderCanvas();
+        e.preventDefault();
+        return;
+      }
+
+      if (e.touches.length === 1 && touchPanStart) {
+        panX = e.touches[0].clientX - touchPanStart.x;
+        panY = e.touches[0].clientY - touchPanStart.y;
+        renderCanvas();
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    container.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2) pinchStart = null;
+      if (e.touches.length === 0) {
+        touchPanStart = null;
+        isPanning = false;
+      }
+    }, { passive: false });
   })();
 
   window.addEventListener('keydown', (e) => {
