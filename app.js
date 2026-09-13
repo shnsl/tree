@@ -603,11 +603,12 @@ function listenForFirebaseProject() {
         if (viewMode === 'canvas') window.centerCanvas(0.25); else renderOutline();
       };
 
-      // Ust bardaki ikona tiklaninca: mevcut tuval kapanir ve eski calismadan
-      // bagimsiz, tamamen bos bir html sayfasi (bos.html) ayni sekmede acilir.
+      // Ust bardaki ikona tiklaninca: index <-> bos arasinda gecis yapar.
       window.openNewWorkspace = function(e) {
         if (e) { try { e.preventDefault(); e.stopPropagation(); } catch (e2) {} }
-        try { window.location.assign('./bos.html'); } catch (err) { window.location.href = './bos.html'; }
+        var path = (window.location.pathname || '').toLowerCase();
+        var target = path.indexOf('bos.html') !== -1 ? './index.html' : './bos.html';
+        try { window.location.assign(target); } catch (err) { window.location.href = target; }
       };
 window.handleLogin = function(event) {
         event.preventDefault();
