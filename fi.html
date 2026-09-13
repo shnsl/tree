@@ -30,36 +30,6 @@
       transition: background-color 0.3s ease, color 0.3s ease;
     }
 
-    /* Ust marka cubugu (index.html ile ayni gorunum) */
-    .brand-bar {
-      width: 100%;
-      background: var(--wp-bar-bg);
-      border-bottom: 1px solid var(--wp-border);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 6px 16px;
-      transition: background-color 0.3s ease, border-color 0.3s ease;
-    }
-    .brand-bar img {
-      width: 48px;
-      height: 48px;
-      border-radius: 10px;
-      object-fit: cover;
-      display: block;
-    }
-    .brand-bar .spacer { display: inline-block; width: 14px; }
-    .brand-bar .letter {
-      font-size: 25px;
-      font-weight: bold;
-      font-family: var(--brand-font, 'Norwester'), system-ui, sans-serif;
-      color: var(--wp-text);
-      display: inline-block;
-      transition: color 0.3s ease;
-    }
-    .brand-bar .letter.l1, .brand-bar .letter.l2, .brand-bar .letter.l3 { letter-spacing: 32px; }
-    .brand-bar .letter.l4 { letter-spacing: 12px; }
-
     /* FI alani */
     .workspace { height: calc(100% - 62px); width: 100%; }
   </style>
@@ -96,6 +66,9 @@
   <div class="brand-bar w-full bg-white border-b border-slate-200 flex items-center justify-center py-1.5 px-4 transition-colors">
     <span onclick="window.toggleFiPage(event)" style="cursor:pointer;" title="Ana sayfaya don">
       <img src="./icons/icon-192.png" alt="ARSH" class="w-12 h-12 rounded-lg object-cover" title="Ana sayfaya don" /></span>
+    &nbsp;
+    &nbsp;
+    &nbsp;
     &nbsp;
     &nbsp;
     <span style="font-size: 25px; font-weight: bold;font-family: var(--brand-font, 'Norwester'), sans-serif;letter-spacing: 32px;">A</span>
