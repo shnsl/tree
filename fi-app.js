@@ -95,6 +95,7 @@
   const SPOUSE_GAP = 48;
   const UNION_STACK_GAP = 56;
   const MARRIAGE_COLOR = '#e11d48';
+  const STEP_SPOUSE_COLOR = '#7c3aed'; // üvey / sonraki eşler
 
   const COLOR_PALETTE = {
     emerald: { border: '#10b981', headerBg: '#ecfdf5', headerText: '#065f46' },
@@ -505,8 +506,9 @@
       (node.spouses || []).forEach((union, ui) => {
         const spouse = union.person;
         const spouseH = estimateNodeHeight(spouse);
-        const spouseX = personX + CARD_WIDTH + SPOUSE_GAP;
-        const spouseY = ui === 0 ? personY : maxBottom + UNION_STACK_GAP;
+        const isStepSpouse = ui > 0;
+        const spouseX = personX + CARD_WIDTH + SPOUSE_GAP + (spouse.offsetX || 0);
+        const spouseY = (ui === 0 ? personY : maxBottom + UNION_STACK_GAP) + (spouse.offsetY || 0);
 
         nodeLayouts.set(spouse.id, {
           id: spouse.id,
@@ -522,12 +524,18 @@
           hasChildren: (union.children || []).length > 0,
           isCollapsed: false,
           isSpouse: true,
+          stepSpouse: isStepSpouse,
           unionId: union.id,
           kinship: null,
           anchorId: node.id
         });
 
-        marriageLinks.push({ a: node.id, b: spouse.id, unionId: union.id });
+        marriageLinks.push({
+          a: node.id,
+          b: spouse.id,
+          unionId: union.id,
+          step: isStepSpouse
+        });
 
         const coupleBottom = Math.max(personY + nodeH, spouseY + spouseH);
         const midCoupleX = (personX + CARD_WIDTH / 2 + spouseX + CARD_WIDTH / 2) / 2;
@@ -679,19 +687,24 @@
 
     let svgPaths = '';
 
-    // Evlilik (eş) bağları — çift çizgi
+    // Evlilik (eş) bağları — öz eş kırmızı, üvey eş mor çift çizgi
     marriageLinks.forEach((link) => {
       const a = nodeLayouts.get(link.a);
       const b = nodeLayouts.get(link.b);
       if (!a || !b) return;
-      const y = Math.min(a.y + a.height / 2, b.y + b.height / 2);
+      const color = link.step ? STEP_SPOUSE_COLOR : MARRIAGE_COLOR;
+      const label = link.step ? '♥ üvey eş' : '♥ eş';
+      const y1 = a.y + a.height / 2;
+      const y2 = b.y + b.height / 2;
       const x1 = a.x + a.width;
       const x2 = b.x;
+      // Eşler farklı Y'deyse orta noktadan çift çizgi
+      const midY = (y1 + y2) / 2;
       svgPaths += `
         <g>
-          <line x1="${x1}" y1="${y - 3}" x2="${x2}" y2="${y - 3}" stroke="${MARRIAGE_COLOR}" stroke-width="2.5" stroke-linecap="round" />
-          <line x1="${x1}" y1="${y + 3}" x2="${x2}" y2="${y + 3}" stroke="${MARRIAGE_COLOR}" stroke-width="2.5" stroke-linecap="round" />
-          <text x="${(x1 + x2) / 2}" y="${y - 8}" text-anchor="middle" fill="${MARRIAGE_COLOR}" font-size="10" font-weight="700">♥ eş</text>
+          <path d="M ${x1} ${y1 - 3} C ${(x1 + x2) / 2} ${y1 - 3}, ${(x1 + x2) / 2} ${y2 - 3}, ${x2} ${y2 - 3}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" />
+          <path d="M ${x1} ${y1 + 3} C ${(x1 + x2) / 2} ${y1 + 3}, ${(x1 + x2) / 2} ${y2 + 3}, ${x2} ${y2 + 3}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" />
+          <text x="${(x1 + x2) / 2}" y="${midY - 10}" text-anchor="middle" fill="${color}" font-size="10" font-weight="700">${label}</text>
         </g>`;
     });
 
@@ -857,7 +870,9 @@
             </div>
             <div class="flex items-center gap-1">
               ${isConnSource ? '<span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-violet-600 text-white">🔗 Kaynak</span>' : ''}
-              ${layout.isSpouse ? '<span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-500 text-white">💑 Eş</span>' : ''}
+              ${layout.isSpouse ? (layout.stepSpouse
+                ? '<span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-violet-600 text-white">💑 Üvey eş</span>'
+                : '<span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-500 text-white">💑 Eş</span>') : ''}
               ${layout.kinship === 'oz' ? '<span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-600 text-white" title="Aynı anne-baba birimi">Öz</span>' : ''}
               ${layout.kinship === 'tek' ? '<span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-slate-500 text-white" title="Tek ebeveyn kaydı">Tek</span>' : ''}
               ${layout.hasChildren ? `
@@ -1528,11 +1543,13 @@
     if (!dragEnabled) return;
     const match = findNodeInTree(project.trees, nodeId);
     if (!match) return;
-    if (!match.parent) {
+    // Kök (eş değil) → tüm ağacı taşı
+    if (!match.parent && !match.isSpouse) {
       window.startTreeDrag(e, match.tree.id);
       return;
     }
     e.stopPropagation();
+    e.preventDefault();
     const startOffsetX = match.node.offsetX || 0;
     const startOffsetY = match.node.offsetY || 0;
     const mouseStartX = e.clientX;
@@ -1601,7 +1618,7 @@
     } else {
       const match = findNodeInTree(project.trees, nodeId);
       if (!match) return;
-      if (!match.parent) {
+      if (!match.parent && !match.isSpouse) {
         window.startTouchDrag(e, null, match.tree.id);
         return;
       }
