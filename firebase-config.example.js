@@ -1,4 +1,4 @@
-// Bu dosyayı firebase-config.local.js olarak kopyalayıp kendi Firebase bilgilerinizi girin.
+// Bu dosyayı firebase-config.js olarak kullanın ve kendi Firebase bilgilerinizi girin.
 window.FIREBASE_CONFIG = {
   apiKey: "",
   authDomain: "",

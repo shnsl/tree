@@ -12,6 +12,7 @@ const APP_SHELL = [
   './fonts-init.js',
   './styles.css',
   './project-data.js',
+  './firebase-config.js',
   './app.js',
   './manifest.webmanifest',
   './icons/icon-192.png',
@@ -84,7 +85,7 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => caches.match('./index.html'));
+        .catch(() => caches.match(event.request));
     })
   );
 });
