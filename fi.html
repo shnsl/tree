@@ -41,6 +41,14 @@
         <span>🌳</span> <span>Yeni Soyağacı</span>
       </button>
 
+      <button onclick="openRelationModal()" class="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-xl transition shadow-xs">
+        <span>🔗</span> <span>Çapraz İlişkiler (<span id="header-rel-count">0</span>)</span>
+      </button>
+
+      <button onclick="openRecentActionsModal()" class="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold rounded-xl transition shadow-xs">
+        <span>🕘</span> <span>Son İşlemler</span>
+      </button>
+
       <div class="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-semibold transition-colors">
         <button id="btn-view-canvas" onclick="setViewMode('canvas')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-slate-900 shadow-xs transition-colors">
           <span>🎨</span> <span>Tuval</span>
@@ -84,6 +92,10 @@
         <span>💾</span> <span>JSON İndir</span>
       </button>
 
+      <button onclick="reloadAppView()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold rounded-xl transition shadow-xs" title="Ekranı yeniler (sayfadan çıkmadan)">
+        <span>🔄</span> <span>Yenile</span>
+      </button>
+
       <button onclick="document.getElementById('json-upload-input').click()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition shadow-xs" title="JSON yükle">
         <span>📂</span> <span>JSON Yükle</span>
       </button>
@@ -114,9 +126,18 @@
         <span class="font-bold text-slate-800">Soyağacı:</span>
         <span>Yukarıdan aşağıya düzen</span>
         <span class="text-slate-300">|</span>
-        <span>➕ Çocuk / 👥 Kardeş ekleyin</span>
+        <span>➕ Çocuk / 👥 Kardeş · 🔗 Çapraz ilişki</span>
         <span class="text-slate-300">|</span>
-        <span>Veriler Firebase <code class="text-[10px]">familyTrees/</code> altında (index’ten ayrı)</span>
+        <span>Veriler <code class="text-[10px]">familyTrees/</code> (index’ten ayrı)</span>
+      </div>
+
+      <div id="relation-connecting-bar" class="hidden absolute top-4 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 text-white px-4 py-2 rounded-2xl shadow-xl border border-violet-500/50 flex items-center gap-3 text-xs backdrop-blur-md">
+        <span class="text-base animate-pulse">🔗</span>
+        <div>
+          <span class="font-bold text-violet-300" id="rel-conn-source-name">Kaynak</span>
+          <span class="text-slate-300"> → Çapraz bağlanacak hedef kişiye tıklayın</span>
+        </div>
+        <button onclick="cancelRelationConnect()" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold rounded-lg transition">İptal (ESC)</button>
       </div>
     </div>
 
@@ -193,6 +214,17 @@
             </div>
             <div id="modal-fields-container" class="space-y-2 max-h-48 overflow-y-auto custom-scroll pr-1"></div>
           </div>
+
+          <div class="pt-3 border-t border-slate-100">
+            <div class="flex items-center justify-between mb-2">
+              <label class="font-semibold text-slate-700 flex items-center gap-1.5">
+                <span>🔗 Çapraz İlişkiler</span>
+                <span id="modal-node-rel-badge" class="px-1.5 py-0.2 rounded-full text-[10px] bg-violet-100 text-violet-700 font-bold">0</span>
+              </label>
+              <button type="button" onclick="startRelationFromCurrentModalNode()" class="text-xs text-violet-600 font-bold hover:text-violet-700">➕ Bu kişiden ilişki bağla</button>
+            </div>
+            <div id="modal-node-relations-list" class="space-y-1.5 text-[11px] max-h-32 overflow-y-auto custom-scroll"></div>
+          </div>
         </div>
 
         <div class="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between transition-colors">
@@ -204,9 +236,82 @@
         </div>
       </div>
     </div>
+
+    <div id="recent-actions-modal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] transition-colors">
+        <div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-cyan-50 transition-colors">
+          <div>
+            <h3 class="font-bold text-slate-900 text-sm">Son İşlemler</h3>
+            <p class="text-[11px] text-slate-500">Yalnız soyağacı kayıtları · Firebase: familyTrees/activityLog</p>
+          </div>
+          <button onclick="closeRecentActionsModal()" class="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition font-bold">✕</button>
+        </div>
+        <div id="recent-actions-list" class="p-5 overflow-y-auto space-y-2 custom-scroll"></div>
+      </div>
+    </div>
+
+    <div id="relation-modal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh] transition-colors">
+        <div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-violet-50/70 transition-colors">
+          <div class="flex items-center gap-2.5">
+            <span class="w-7 h-7 rounded-lg bg-violet-600 text-white flex items-center justify-center text-sm font-bold shadow-xs">🔗</span>
+            <div>
+              <h3 id="rel-modal-title" class="font-bold text-slate-900 text-sm">Çapraz Soyağacı İlişkisi</h3>
+              <p class="text-[11px] text-slate-500">Farklı soyağaçlarındaki kişileri bağlayın.</p>
+            </div>
+          </div>
+          <button onclick="closeRelationModal()" class="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition font-bold">✕</button>
+        </div>
+        <div class="p-5 overflow-y-auto space-y-4 text-xs custom-scroll">
+          <input type="hidden" id="rel-edit-id" value="" />
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Kaynak Kişi *</label>
+              <select id="rel-source-select" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-violet-500 focus:outline-none"></select>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Hedef Kişi *</label>
+              <select id="rel-target-select" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-violet-500 focus:outline-none"></select>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">İlişki Etiketi</label>
+              <input type="text" id="rel-label-input" placeholder="Örn: Evli, Kuzen" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-violet-500 focus:outline-none" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Çizgi Stili</label>
+              <select id="rel-style-select" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-violet-500 focus:outline-none">
+                <option value="solid">➖ Düz</option>
+                <option value="dashed">┄ Kesikli</option>
+                <option value="dotted">┈ Noktalı</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1.5">Çizgi Rengi</label>
+            <div class="flex items-center gap-2 flex-wrap" id="rel-color-picker-container"></div>
+          </div>
+          <div class="mt-4 pt-4 border-t border-slate-100">
+            <div class="flex items-center justify-between mb-2">
+              <span class="font-bold text-slate-800">Tüm çapraz ilişkiler (<span id="rel-modal-list-count">0</span>)</span>
+            </div>
+            <div id="rel-modal-list" class="space-y-2 max-h-40 overflow-y-auto custom-scroll pr-1"></div>
+          </div>
+        </div>
+        <div class="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between transition-colors">
+          <button type="button" id="rel-btn-delete" onclick="deleteCurrentEditingRelation()" class="hidden px-3 py-1.5 text-rose-600 hover:bg-rose-50 rounded-lg font-bold transition">🗑️ Bu İlişkiyi Sil</button>
+          <div class="flex-1"></div>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="closeRelationModal()" class="px-3.5 py-1.5 text-slate-600 hover:bg-slate-200 rounded-lg font-medium transition">İptal</button>
+            <button type="button" onclick="saveRelationModal()" class="px-4 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-bold transition shadow-xs">💾 Kaydet</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </main>
 
   <script src="./firebase-config.js"></script>
-  <script src="./fi-app.js"></script>
+  <script src="./fi-app.js?v=22"></script>
 </body>
 </html>

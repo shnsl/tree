@@ -56,6 +56,7 @@ self.addEventListener('fetch', (event) => {
     url.includes('app-config.js') ||
     url.includes('index.html') ||
     url.includes('fi.html') ||
+    url.includes('fi-app.js') ||
     url.endsWith('/');
 
   // HTML / yapilandirma dosyalari icin: once ag -> her zaman en guncel icerik.
