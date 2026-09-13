@@ -603,11 +603,11 @@ function listenForFirebaseProject() {
         if (viewMode === 'canvas') window.centerCanvas(0.25); else renderOutline();
       };
 
-      // Ust bardaki ikona tiklaninca: index <-> bos arasinda gecis yapar.
-      window.openNewWorkspace = function(e) {
+      // Ust bardaki ikona tiklaninca: index <-> fi arasinda gecis yapar.
+      window.toggleFiPage = function(e) {
         if (e) { try { e.preventDefault(); e.stopPropagation(); } catch (e2) {} }
         var path = (window.location.pathname || '').toLowerCase();
-        var target = path.indexOf('bos.html') !== -1 ? './index.html' : './bos.html';
+        var target = path.indexOf('fi.html') !== -1 ? './index.html' : './fi.html';
         try { window.location.assign(target); } catch (err) { window.location.href = target; }
       };
 window.handleLogin = function(event) {

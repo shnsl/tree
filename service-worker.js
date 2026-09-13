@@ -7,6 +7,7 @@ const CACHE_NAME = self.PWA_CACHE_VERSION;
 const APP_SHELL = [
   './',
   './index.html',
+  './fi.html',
   './app-config.js',
   './head-init.js',
   './fonts-init.js',

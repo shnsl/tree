@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>ARSH</title>
+  <title>FI</title>
   <script src="./app-config.js"></script>
   <style>
     :root {
@@ -60,7 +60,7 @@
     .brand-bar .letter.l1, .brand-bar .letter.l2, .brand-bar .letter.l3 { letter-spacing: 32px; }
     .brand-bar .letter.l4 { letter-spacing: 12px; }
 
-    /* Bos calisma alani */
+    /* FI alani */
     .workspace { height: calc(100% - 62px); width: 100%; }
   </style>
   <script>
@@ -94,18 +94,18 @@
 <body>
   <!-- Ayrı Marka Cubugu: ikon ve ARSH yazisi her ekranda ortada -->
   <div class="brand-bar w-full bg-white border-b border-slate-200 flex items-center justify-center py-1.5 px-4 transition-colors">
-    <span onclick="window.openNewWorkspace(event)" style="cursor:pointer;" title="Yeni bos calisma alani ac">
-      <img src="./icons/icon-192.png" alt="ARSH" class="w-12 h-12 rounded-lg object-cover" title="Yeni bos calisma alani ac" /></span>
+    <span onclick="window.toggleFiPage(event)" style="cursor:pointer;" title="Ana sayfaya don">
+      <img src="./icons/icon-192.png" alt="ARSH" class="w-12 h-12 rounded-lg object-cover" title="Ana sayfaya don" /></span>
     &nbsp;
-    &nbsp;       
+    &nbsp;
     <span style="font-size: 25px; font-weight: bold;font-family: var(--brand-font, 'Norwester'), sans-serif;letter-spacing: 32px;">A</span>
     <span style="font-size: 25px; font-weight: bold;font-family: var(--brand-font, 'Norwester'), sans-serif;letter-spacing: 32px;">R</span>
     <span style="font-size: 25px; font-weight: bold;font-family: var(--brand-font, 'Norwester'), sans-serif;letter-spacing: 32px;">S</span>
     <span style="font-size: 25px; font-weight: bold;font-family: var(--brand-font, 'Norwester'), sans-serif;letter-spacing: 32px;">H</span>
     </div>
 
-  <!-- Bos bir uygulama alani: icerik yok, tamamen temiz -->
-  <main class="workspace" aria-label="Bos calisma alani"></main>
+  <!-- FI sayfa alani -->
+  <main class="workspace" aria-label="FI"></main>
 
   <script>
     // head'de <body> hazir olmadan class eklenemez; burada body'e uygula.
@@ -117,8 +117,8 @@
       } catch (e) {}
     })();
 
-    // bos.html app.js yuklemez; ikon tiklaninca index.html'e don.
-    window.openNewWorkspace = function(e) {
+    // fi.html app.js yuklemez; ikon tiklaninca index.html'e don.
+    window.toggleFiPage = function(e) {
       if (e) { try { e.preventDefault(); e.stopPropagation(); } catch (e2) {} }
       try { window.location.assign('./index.html'); } catch (err) { window.location.href = './index.html'; }
     };

@@ -19,7 +19,7 @@
 // global nesneyi temsil eder; böylece tek dosya her iki ortamda da çalışır.
 self.PWA_CONFIG = {
   SHORT_NAME: 'ARSH',
-  VERSION: '12',
+  VERSION: '13',
   NAME: 'Varlık ve Süreç Yönetim Haritası',
 
   // ================================================================
