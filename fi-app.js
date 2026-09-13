@@ -1511,16 +1511,42 @@
     });
   }
 
-  function addNearbyTree(rootNode, nearTree, nameSuffix) {
+  function getNodeCanvasPosition(nodeId) {
+    try {
+      const layouts = computeLayouts();
+      const layout = layouts.get(nodeId);
+      if (layout && typeof layout.x === 'number' && typeof layout.y === 'number') {
+        return { x: layout.x, y: layout.y };
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function addNearbyTree(rootNode, nearTree, nameSuffix, fixedPos) {
     if (!rootNode) return null;
     ensureFamilyShape(rootNode);
     const baseX = (nearTree && typeof nearTree.x === 'number') ? nearTree.x : 200;
     const baseY = (nearTree && typeof nearTree.y === 'number') ? nearTree.y : 200;
+
+    let x;
+    let y;
+    if (fixedPos && typeof fixedPos.x === 'number' && typeof fixedPos.y === 'number') {
+      x = Math.round(fixedPos.x);
+      y = Math.round(fixedPos.y);
+    } else {
+      x = baseX + 280 + Math.floor(Math.random() * 80);
+      y = baseY + Math.floor(Math.random() * 60);
+    }
+
+    // Ağaç kökü = kartın tuval konumu; eski offset kaymasın
+    rootNode.offsetX = 0;
+    rootNode.offsetY = 0;
+
     const newTree = {
       id: generateId('tree'),
       name: (rootNode.title || 'Soyağacı') + (nameSuffix || ''),
-      x: baseX + 280 + Math.floor(Math.random() * 80),
-      y: baseY + Math.floor(Math.random() * 60),
+      x: x,
+      y: y,
       rootNode: rootNode
     };
     project.trees.push(newTree);
@@ -1699,6 +1725,9 @@
       '• Bu kart ve diğer kişiler silinmez'
     )) return false;
 
+    // Bağı koparılan kart tuvalde aynı yerde kalsın
+    const stayPos = getNodeCanvasPosition(node.id);
+
     node.spouses = [];
     node.children = [];
 
@@ -1708,20 +1737,20 @@
       match.anchor.children = match.anchor.children || [];
       kids.forEach((c) => match.anchor.children.push(c));
       materializeReleasedFamily(unions, directKids, tree);
-      addNearbyTree(node, tree, ' (bağsız)');
+      addNearbyTree(node, tree, ' (bağsız)', stayPos);
     } else if (match.union && match.anchor) {
       match.union.children = (match.union.children || []).filter((c) => c.id !== node.id);
       materializeReleasedFamily(unions, directKids, tree);
-      addNearbyTree(node, tree, ' (bağsız)');
+      addNearbyTree(node, tree, ' (bağsız)', stayPos);
     } else if (match.parent) {
       match.parent.children = (match.parent.children || []).filter((c) => c.id !== node.id);
       (match.parent.spouses || []).forEach((u) => {
         u.children = (u.children || []).filter((c) => c.id !== node.id);
       });
       materializeReleasedFamily(unions, directKids, tree);
-      addNearbyTree(node, tree, ' (bağsız)');
+      addNearbyTree(node, tree, ' (bağsız)', stayPos);
     } else {
-      // Kök: diğerleri ağaçta kalsın, bu kişi ayrı bağsız karta çıksın
+      // Kök: diğerleri ağaçta kalsın, bu kişi aynı konumda bağsız kalsın
       if (unions.length > 0) {
         const first = unions[0];
         const newRoot = first.person;
@@ -1744,18 +1773,20 @@
               u.person.children = u.person.children || [];
               u.person.children.push(c);
             });
-            addNearbyTree(u.person, tree, ' (ayrılan)');
+            const otherPos = getNodeCanvasPosition(u.person.id);
+            addNearbyTree(u.person, tree, ' (ayrılan)', otherPos);
           }
-          addNearbyTree(node, tree, ' (bağsız)');
+          addNearbyTree(node, tree, ' (bağsız)', stayPos);
         }
       } else if (directKids.length > 0) {
         tree.rootNode = directKids[0];
         for (let i = 1; i < directKids.length; i++) {
-          addNearbyTree(directKids[i], tree, ' (ayrılan)');
+          const kidPos = getNodeCanvasPosition(directKids[i].id);
+          addNearbyTree(directKids[i], tree, ' (ayrılan)', kidPos);
         }
-        addNearbyTree(node, tree, ' (bağsız)');
+        addNearbyTree(node, tree, ' (bağsız)', stayPos);
       }
-      // Zaten yalnız kökse yalnızca çapraz ilişkiler temizlenir
+      // Zaten yalnız kökse yalnızca çapraz ilişkiler temizlenir — konum aynı kalır
     }
 
     project.relations = (project.relations || []).filter(
