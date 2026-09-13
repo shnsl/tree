@@ -33,6 +33,8 @@
           var __cfg = window.PWA_CONFIG || {};
           if (__cfg.BASE_FONT) rs.setProperty('--base-font', __cfg.BASE_FONT);
           if (__cfg.BRAND_FONT) rs.setProperty('--brand-font', __cfg.BRAND_FONT);
+          if (__cfg.FONTS && __cfg.FONTS.BASE && __cfg.FONTS.BASE.name) rs.setProperty('--base-font', __cfg.FONTS.BASE.name);
+          if (__cfg.FONTS && __cfg.FONTS.BRAND && __cfg.FONTS.BRAND.name) rs.setProperty('--brand-font', __cfg.FONTS.BRAND.name);
           if (t.loginBackgroundLight) rs.setProperty('--bg-login-light', t.loginBackgroundLight);
           if (t.loginBackgroundDark)  rs.setProperty('--bg-login-dark',  t.loginBackgroundDark);
           if (t.canvasBackground)     rs.setProperty('--bg-canvas',      t.canvasBackground);

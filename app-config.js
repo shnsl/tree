@@ -33,8 +33,8 @@ self.PWA_CONFIG = {
   // ================================================================
   FONTS: {
     // Put your .otf/.ttf font into ./fonts/ then set name+file below.
-    //  name: font family used in app (e.g. Saturnest); file: filename in ./fonts/
-    BASE:  { name: 'Saturnest', file: 'Saturnest.otf' },
+    // Leave file empty for fonts loaded from CSS/CDN.
+    BASE:  { name: 'Plus Jakarta Sans', file: '' },
     BRAND: { name: 'Norwester', file: 'Norwester.otf' }
   },
 
