@@ -540,8 +540,11 @@
       ensureFamilyShape(node);
       const nodeH = estimateNodeHeight(node);
       const blockW = getFamilyBlockWidth(node);
-      const personX = startX + (node.offsetX || 0);
-      const personY = startY + (node.offsetY || 0);
+      // Yapısal konum (offset'siz): çocuk/eş yerleşimi buraya göre — sürüklenen kart diğerlerini oynatmaz
+      const baseX = startX;
+      const baseY = startY;
+      const personX = baseX + (node.offsetX || 0);
+      const personY = baseY + (node.offsetY || 0);
 
       const hasFamilyKids = (node.spouses || []).some((u) => !u.mirror && (u.children || []).length > 0) ||
         (node.children || []).length > 0;
@@ -566,10 +569,10 @@
         hasRefSpouse: (node.spouses || []).some((u) => isRefUnion(u) || u.personId)
       });
 
-      if (node.collapsed) return { right: personX + CARD_WIDTH, bottom: personY + nodeH };
+      if (node.collapsed) return { right: baseX + CARD_WIDTH, bottom: baseY + nodeH };
 
-      let maxBottom = personY + nodeH;
-      let maxRight = personX + CARD_WIDTH;
+      let maxBottom = baseY + nodeH;
+      let maxRight = baseX + CARD_WIDTH;
 
       (node.spouses || []).forEach((union, ui) => {
         // Referanslı eş: kart yerinde kalır (anne-baba altında); sadece bağ + ortak çocuklar
@@ -586,7 +589,7 @@
 
           if ((union.children || []).length) {
             const kidsW = getChildrenRowWidth(union.children);
-            let kidX = personX + CARD_WIDTH / 2 - kidsW / 2;
+            let kidX = baseX + CARD_WIDTH / 2 - kidsW / 2;
             const kidY = maxBottom + VERTICAL_SPACING;
             (union.children || []).forEach((child) => {
               const cw = getFamilyBlockWidth(child);
@@ -616,8 +619,10 @@
         if (!spouse) return;
         const spouseH = estimateNodeHeight(spouse);
         const isStepSpouse = ui > 0;
-        const spouseX = personX + CARD_WIDTH + SPOUSE_GAP + (spouse.offsetX || 0);
-        const spouseY = (ui === 0 ? personY : maxBottom + UNION_STACK_GAP) + (spouse.offsetY || 0);
+        const spouseBaseX = baseX + CARD_WIDTH + SPOUSE_GAP;
+        const spouseBaseY = ui === 0 ? baseY : maxBottom + UNION_STACK_GAP;
+        const spouseX = spouseBaseX + (spouse.offsetX || 0);
+        const spouseY = spouseBaseY + (spouse.offsetY || 0);
 
         nodeLayouts.set(spouse.id, {
           id: spouse.id,
@@ -647,8 +652,8 @@
           step: isStepSpouse
         });
 
-        const coupleBottom = Math.max(personY + nodeH, spouseY + spouseH);
-        const midCoupleX = (personX + CARD_WIDTH / 2 + spouseX + CARD_WIDTH / 2) / 2;
+        const coupleBottom = Math.max(baseY + nodeH, spouseBaseY + spouseH);
+        const midCoupleX = (baseX + CARD_WIDTH / 2 + spouseBaseX + CARD_WIDTH / 2) / 2;
         let kidsBottom = coupleBottom;
         let kidsRight = midCoupleX;
 
@@ -678,13 +683,13 @@
         }
 
         maxBottom = Math.max(maxBottom, kidsBottom, coupleBottom);
-        maxRight = Math.max(maxRight, spouseX + CARD_WIDTH, kidsRight);
+        maxRight = Math.max(maxRight, spouseBaseX + CARD_WIDTH, kidsRight);
       });
 
       // Eşsiz doğrudan çocuklar (tek ebeveyn / bilinmeyen diğer ebeveyn)
       if ((node.children || []).length) {
         const kidsW = getChildrenRowWidth(node.children);
-        let kidX = personX + CARD_WIDTH / 2 - kidsW / 2;
+        let kidX = baseX + CARD_WIDTH / 2 - kidsW / 2;
         const kidY = maxBottom + VERTICAL_SPACING;
         (node.children || []).forEach((child) => {
           const cw = getFamilyBlockWidth(child);
@@ -2102,11 +2107,7 @@
     if (!dragEnabled) return;
     const match = findNodeInTree(project.trees, nodeId);
     if (!match) return;
-    // Kök (eş değil) → tüm ağacı taşı
-    if (!match.parent && !match.isSpouse) {
-      window.startTreeDrag(e, match.tree.id);
-      return;
-    }
+    // Her kart yalnızca kendi offset'ini taşır; diğer kartlar yerinde kalır
     e.stopPropagation();
     e.preventDefault();
     const startOffsetX = match.node.offsetX || 0;
@@ -2177,10 +2178,7 @@
     } else {
       const match = findNodeInTree(project.trees, nodeId);
       if (!match) return;
-      if (!match.parent && !match.isSpouse) {
-        window.startTouchDrag(e, null, match.tree.id);
-        return;
-      }
+      // Her kart yalnızca kendi offset'ini taşır
       touchDragState = {
         type: 'node',
         node: match.node,
