@@ -184,6 +184,25 @@
       '</select>';
   }
 
+  function isRefUnion(u) {
+    return Boolean(u && (u.personId || u.ref) && !u.person);
+  }
+
+  function resolveUnionSpouse(union) {
+    if (!union) return null;
+    if (union.person) return union.person;
+    if (union.personId) {
+      const m = findNodeInTree(project.trees, union.personId);
+      return m ? m.node : null;
+    }
+    return null;
+  }
+
+  function unionSpouseTitle(union) {
+    const p = resolveUnionSpouse(union);
+    return (p && p.title) || (union && union.personId ? 'Eş (bağlı)' : 'Eş');
+  }
+
   function ensureFamilyShape(node) {
     if (!node) return;
     if (!Array.isArray(node.children)) node.children = [];
@@ -191,8 +210,15 @@
     applyGenderTheme(node);
     node.spouses.forEach((u) => {
       if (!u.id) u.id = generateId('union');
-      if (!u.person) u.person = createPerson({ title: 'Eş', subtitle: 'Eş', icon: 'heart', color: 'rose' });
       if (!Array.isArray(u.children)) u.children = [];
+      // Referanslı eş (mevcut kart): gömülü person oluşturulmaz — anne-baba bağı korunur
+      if (u.personId || u.ref) {
+        if (u.person) delete u.person;
+        u.ref = true;
+        u.children.forEach(ensureFamilyShape);
+        return;
+      }
+      if (!u.person) u.person = createPerson({ title: 'Eş', subtitle: 'Eş', icon: 'heart', color: 'rose' });
       ensureFamilyShape(u.person);
       u.children.forEach(ensureFamilyShape);
     });
@@ -464,6 +490,11 @@
     const coupleW = CARD_WIDTH + SPOUSE_GAP + CARD_WIDTH;
     let maxW = CARD_WIDTH;
     (node.spouses || []).forEach((u) => {
+      if (u.mirror) return;
+      if (isRefUnion(u)) {
+        maxW = Math.max(maxW, getChildrenRowWidth(u.children || []));
+        return;
+      }
       maxW = Math.max(maxW, coupleW, getChildrenRowWidth(u.children || []));
     });
     maxW = Math.max(maxW, getChildrenRowWidth(node.children || []));
@@ -477,9 +508,11 @@
     let bottom = nodeH;
     let cursor = 0;
     (node.spouses || []).forEach((u, ui) => {
-      const spouseH = estimateNodeHeight(u.person);
+      if (u.mirror) return;
+      let spouseH = 0;
+      if (!isRefUnion(u) && u.person) spouseH = estimateNodeHeight(u.person);
       const coupleTop = ui === 0 ? 0 : cursor + UNION_STACK_GAP;
-      const coupleBottom = coupleTop + Math.max(ui === 0 ? nodeH : 0, spouseH);
+      const coupleBottom = coupleTop + Math.max(ui === 0 ? nodeH : 0, spouseH || nodeH);
       let kidsH = 0;
       if ((u.children || []).length) {
         let maxKid = 0;
@@ -510,7 +543,7 @@
       const personX = startX + (node.offsetX || 0);
       const personY = startY + (node.offsetY || 0);
 
-      const hasFamilyKids = (node.spouses || []).some((u) => (u.children || []).length > 0) ||
+      const hasFamilyKids = (node.spouses || []).some((u) => !u.mirror && (u.children || []).length > 0) ||
         (node.children || []).length > 0;
 
       nodeLayouts.set(node.id, {
@@ -529,7 +562,8 @@
         isSpouse: Boolean(meta && meta.isSpouse),
         unionId: (meta && meta.unionId) || null,
         kinship: (meta && meta.kinship) || null,
-        anchorId: (meta && meta.anchorId) || null
+        anchorId: (meta && meta.anchorId) || null,
+        hasRefSpouse: (node.spouses || []).some((u) => isRefUnion(u) || u.personId)
       });
 
       if (node.collapsed) return { right: personX + CARD_WIDTH, bottom: personY + nodeH };
@@ -538,7 +572,48 @@
       let maxRight = personX + CARD_WIDTH;
 
       (node.spouses || []).forEach((union, ui) => {
+        // Referanslı eş: kart yerinde kalır (anne-baba altında); sadece bağ + ortak çocuklar
+        if (isRefUnion(union) || union.personId) {
+          if (union.mirror) return;
+          const otherId = union.personId;
+          marriageLinks.push({
+            a: node.id,
+            b: otherId,
+            unionId: union.id,
+            step: false,
+            ref: true
+          });
+
+          if ((union.children || []).length) {
+            const kidsW = getChildrenRowWidth(union.children);
+            let kidX = personX + CARD_WIDTH / 2 - kidsW / 2;
+            const kidY = maxBottom + VERTICAL_SPACING;
+            (union.children || []).forEach((child) => {
+              const cw = getFamilyBlockWidth(child);
+              const placed = placeFamily(child, depth + 1, kidX, kidY, [node.id, otherId], tree, {
+                unionId: union.id,
+                kinship: 'oz',
+                anchorId: node.id
+              });
+              parentChildLinks.push({
+                parents: [node.id, otherId],
+                childId: child.id,
+                kinship: 'oz',
+                unionId: union.id,
+                step: false,
+                lineColor: MARRIAGE_COLOR,
+                ref: true
+              });
+              kidX += cw + HORIZONTAL_GAP;
+              maxBottom = Math.max(maxBottom, placed.bottom);
+              maxRight = Math.max(maxRight, placed.right);
+            });
+          }
+          return;
+        }
+
         const spouse = union.person;
+        if (!spouse) return;
         const spouseH = estimateNodeHeight(spouse);
         const isStepSpouse = ui > 0;
         const spouseX = personX + CARD_WIDTH + SPOUSE_GAP + (spouse.offsetX || 0);
@@ -561,7 +636,8 @@
           stepSpouse: isStepSpouse,
           unionId: union.id,
           kinship: null,
-          anchorId: node.id
+          anchorId: node.id,
+          hasRefSpouse: false
         });
 
         marriageLinks.push({
@@ -574,14 +650,12 @@
         const coupleBottom = Math.max(personY + nodeH, spouseY + spouseH);
         const midCoupleX = (personX + CARD_WIDTH / 2 + spouseX + CARD_WIDTH / 2) / 2;
         let kidsBottom = coupleBottom;
-        let kidsLeft = midCoupleX;
         let kidsRight = midCoupleX;
 
         if ((union.children || []).length) {
           const kidsW = getChildrenRowWidth(union.children);
           let kidX = midCoupleX - kidsW / 2;
           const kidY = coupleBottom + VERTICAL_SPACING;
-          kidsLeft = kidX;
           (union.children || []).forEach((child) => {
             const cw = getFamilyBlockWidth(child);
             const placed = placeFamily(child, depth + 1, kidX, kidY, [node.id, spouse.id], tree, {
@@ -707,18 +781,33 @@
 
     let svgPaths = '';
 
-    // Evlilik (eş) bağları — öz eş kırmızı, üvey eş mor çift çizgi
+    // Evlilik (eş) bağları — öz eş kırmızı, üvey eş mor; referanslı eş (kuzen vb.) merkezden eğri
     marriageLinks.forEach((link) => {
       const a = nodeLayouts.get(link.a);
       const b = nodeLayouts.get(link.b);
       if (!a || !b) return;
       const color = link.step ? STEP_SPOUSE_COLOR : MARRIAGE_COLOR;
-      const label = link.step ? '♥ üvey eş' : '♥ eş';
+      const label = link.ref ? '♥ bağlı eş' : (link.step ? '♥ üvey eş' : '♥ eş');
+
+      if (link.ref) {
+        const ax = a.x + a.width / 2;
+        const ay = a.y + a.height / 2;
+        const bx = b.x + b.width / 2;
+        const by = b.y + b.height / 2;
+        const mx = (ax + bx) / 2;
+        const my = Math.min(ay, by) - 28;
+        svgPaths += `
+          <g>
+            <path d="M ${ax} ${ay} Q ${mx} ${my}, ${bx} ${by}" fill="none" stroke="${color}" stroke-width="2.5" stroke-dasharray="6,4" stroke-linecap="round" />
+            <text x="${mx}" y="${my - 4}" text-anchor="middle" fill="${color}" font-size="10" font-weight="700">${label}</text>
+          </g>`;
+        return;
+      }
+
       const y1 = a.y + a.height / 2;
       const y2 = b.y + b.height / 2;
       const x1 = a.x + a.width;
       const x2 = b.x;
-      // Eşler farklı Y'deyse orta noktadan çift çizgi
       const midY = (y1 + y2) / 2;
       svgPaths += `
         <g>
@@ -912,6 +1001,7 @@
             </div>
             <div class="flex items-center gap-1">
               ${isConnSource ? `<span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold text-white ${connPort === 'up' ? 'bg-indigo-600' : connPort === 'down' ? 'bg-emerald-600' : connPort === 'spouse' ? 'bg-rose-600' : 'bg-violet-600'}">${connPort === 'up' ? '↑ Ebeveyn' : connPort === 'down' ? '↓ Alt' : connPort === 'spouse' ? '💑 Eş' : '🔗 Kaynak'}</span>` : ''}
+              ${layout.hasRefSpouse ? '<span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-600 text-white" title="Referanslı eş — ebeveyn bağları korunur">💑 Bağlı eş</span>' : ''}
               ${layout.isSpouse ? (layout.stepSpouse
                 ? '<span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-violet-600 text-white">💑 Üvey eş</span>'
                 : '<span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-500 text-white">💑 Eş</span>') : ''}
@@ -982,14 +1072,20 @@
     const renderOutlineNode = (node) => {
       ensureFamilyShape(node);
       const theme = COLOR_PALETTE[node.color || 'emerald'] || COLOR_PALETTE.emerald;
-      const spousesHtml = (node.spouses || []).map((u) => `
+      const spousesHtml = (node.spouses || []).map((u) => {
+        if (u.mirror) return '';
+        const refTitle = isRefUnion(u) || u.personId
+          ? '<div class="text-[11px] font-bold text-rose-700">💑 ' + escapeHtml(unionSpouseTitle(u)) + ' <span class="text-[10px] font-medium text-slate-500">(bağlı eş — ebeveynleri korunur)</span></div>'
+          : '';
+        return `
         <div class="ml-3 mt-2 border-l-2 border-rose-300 pl-3">
           <div class="text-[10px] font-bold text-rose-600 mb-1">💑 Eş birimi</div>
-          ${u.person ? renderOutlineNode(u.person) : ''}
+          ${u.person ? renderOutlineNode(u.person) : refTitle}
           <div class="text-[10px] font-bold text-emerald-700 mt-2 mb-1">Öz çocuklar</div>
           ${(u.children || []).map(renderOutlineNode).join('') || '<div class="text-[10px] text-slate-400">—</div>'}
         </div>
-      `).join('');
+      `;
+      }).join('');
       const childrenHtml = (node.children || []).map(renderOutlineNode).join('');
       return `
         <div class="ml-0 sm:ml-4 mt-2 border-l-2 pl-3" style="border-color: ${theme.border}55;" id="outline-node-${node.id}">
@@ -1126,7 +1222,7 @@
 
   function pickUnionForChild(anchor, preferExisting) {
     ensureFamilyShape(anchor);
-    const unions = anchor.spouses || [];
+    const unions = (anchor.spouses || []).filter((u) => !u.mirror);
     if (!unions.length) {
       const union = createUnion();
       anchor.spouses.push(union);
@@ -1135,7 +1231,7 @@
     if (unions.length === 1 || preferExisting === true) {
       return { union: unions[0], createdSpouse: false };
     }
-    const lines = unions.map((u, i) => (i + 1) + ') ' + ((u.person && u.person.title) || 'Eş') + ' — ' + ((u.children || []).length) + ' çocuk');
+    const lines = unions.map((u, i) => (i + 1) + ') ' + unionSpouseTitle(u) + ' — ' + ((u.children || []).length) + ' çocuk');
     const choice = prompt(
       'Hangi eş birimine öz çocuk eklensin?\n' + lines.join('\n') + '\n\nNumara girin (yeni eş için 0):',
       '1'
@@ -1163,7 +1259,7 @@
       return { union, createdSpouse: true };
     }
     if (unions.length === 1) return { union: unions[0], createdSpouse: false };
-    const lines = unions.map((u, i) => (i + 1) + ') ' + ((u.person && u.person.title) || 'Eş'));
+    const lines = unions.map((u, i) => (i + 1) + ') ' + unionSpouseTitle(u));
     const choice = prompt('Üvey çocuk hangi eş birimine eklensin?\n' + lines.join('\n') + '\n\nYeni eş: 0', '1');
     if (choice === null) return null;
     const n = parseInt(choice, 10);
@@ -1259,9 +1355,39 @@
   window.addChildNode = function (personId) {
     const match = findNodeInTree(project.trees, personId);
     if (!match) return;
+
+    // Referanslı eşin ayna tarafındaysak çocuğu ana birime yaz
+    const mirrorRef = (match.node.spouses || []).find((u) => u.mirror && u.personId);
+    if (mirrorRef) {
+      const otherMatch = findNodeInTree(project.trees, mirrorRef.personId);
+      if (otherMatch) {
+        const primary = (otherMatch.node.spouses || []).find(
+          (u) => !u.mirror && u.personId === match.node.id
+        );
+        if (primary) {
+          const child = createPerson({ title: 'Yeni Çocuk', subtitle: 'Öz çocuk', color: 'emerald' });
+          primary.children = primary.children || [];
+          primary.children.push(child);
+          otherMatch.node.collapsed = false;
+          match.node.collapsed = false;
+          saveProject();
+          recordActivity(
+            'created',
+            'node',
+            child.id,
+            child.title,
+            'Öz çocuk: ' + otherMatch.node.title + ' + ' + match.node.title
+          );
+          refreshView();
+          window.openEditModal(child.id);
+          return;
+        }
+      }
+    }
+
     const anchor = resolveAnchor(match);
     let unionInfo;
-    if (match.isSpouse && match.union) {
+    if (match.isSpouse && match.union && !isRefUnion(match.union)) {
       unionInfo = { union: match.union, createdSpouse: false };
     } else {
       unionInfo = pickUnionForChild(anchor, false);
@@ -1271,9 +1397,15 @@
     unionInfo.union.children.push(child);
     anchor.collapsed = false;
     saveProject();
-    recordActivity('created', 'node', child.id, child.title, 'Öz çocuk: ' + anchor.title + ' + ' + (unionInfo.union.person.title || 'Eş'));
+    recordActivity(
+      'created',
+      'node',
+      child.id,
+      child.title,
+      'Öz çocuk: ' + anchor.title + ' + ' + unionSpouseTitle(unionInfo.union)
+    );
     refreshView();
-    if (unionInfo.createdSpouse) {
+    if (unionInfo.createdSpouse && unionInfo.union.person) {
       alert('Eş otomatik oluşturuldu. Önce eşi, sonra çocuğu düzenleyebilirsiniz.');
       window.openEditModal(unionInfo.union.person.id);
     } else {
@@ -1356,6 +1488,29 @@
     }
   };
 
+  function walkAllPersons(fn) {
+    const walk = (n) => {
+      if (!n) return;
+      fn(n);
+      (n.children || []).forEach(walk);
+      (n.spouses || []).forEach((u) => {
+        if (u.person) walk(u.person);
+        (u.children || []).forEach(walk);
+      });
+    };
+    (project.trees || []).forEach((t) => {
+      if (t.rootNode) walk(t.rootNode);
+    });
+  }
+
+  /** Silinen / bağları koparılan kişiye giden tüm personId eş referanslarını temizle */
+  function stripSpouseReferencesTo(personId) {
+    walkAllPersons((p) => {
+      if (!p.spouses) return;
+      p.spouses = p.spouses.filter((u) => u.personId !== personId);
+    });
+  }
+
   function addNearbyTree(rootNode, nearTree, nameSuffix) {
     if (!rootNode) return null;
     ensureFamilyShape(rootNode);
@@ -1381,7 +1536,12 @@
     person.children = [];
 
     unions.forEach((u) => {
-      if (!u || !u.person) return;
+      if (!u) return;
+      if (isRefUnion(u) || u.personId) {
+        (u.children || []).forEach((c) => addNearbyTree(c, nearTree, ' (ayrılan)'));
+        return;
+      }
+      if (!u.person) return;
       const spouseRoot = u.person;
       ensureFamilyShape(spouseRoot);
       (u.children || []).forEach((c) => {
@@ -1477,6 +1637,8 @@
       replaceRootKeepingOthers(tree, node);
     }
 
+    stripSpouseReferencesTo(nodeId);
+
     project.relations = (project.relations || []).filter(
       (r) => r.sourceNodeId !== nodeId && r.targetNodeId !== nodeId
     );
@@ -1488,7 +1650,12 @@
 
   function materializeReleasedFamily(unions, directKids, nearTree) {
     (unions || []).forEach((u) => {
-      if (!u || !u.person) return;
+      if (!u) return;
+      if (isRefUnion(u) || u.personId) {
+        (u.children || []).forEach((c) => addNearbyTree(c, nearTree, ' (ayrılan)'));
+        return;
+      }
+      if (!u.person) return;
       const spouseRoot = u.person;
       ensureFamilyShape(spouseRoot);
       (u.children || []).forEach((c) => {
@@ -1594,6 +1761,8 @@
     project.relations = (project.relations || []).filter(
       (r) => r.sourceNodeId !== node.id && r.targetNodeId !== node.id
     );
+
+    stripSpouseReferencesTo(node.id);
 
     saveProject();
     recordActivity('updated', 'node', node.id, node.title, 'Tüm bağlar koparıldı');
@@ -2274,7 +2443,9 @@
   }
 
   function personHasSpouseId(person, spouseId) {
-    return Boolean(person && (person.spouses || []).some((u) => u.person && u.person.id === spouseId));
+    return Boolean(person && (person.spouses || []).some((u) =>
+      (u.person && u.person.id === spouseId) || u.personId === spouseId
+    ));
   }
 
   /** Kişiyi bulunduğu yerden çıkarır; kendi alt ağacı (eş/çocuk) üzerinde kalır. Akrabalık engeli yok. */
@@ -2362,15 +2533,16 @@
     return node;
   }
 
-  /** İki mevcut kartı eş yapar. Amca çocuğu / kuzen dahil — akrabalık engeli yok. */
+  /** İki mevcut kartı eş yapar — kimseyi ağaçtan koparmaz; personId referansı ile bağlar.
+   *  Amca çocuğu / kuzen: hem eş olurlar hem anne-baba bağları kalır. */
   function linkAsSpouses(anchorId, spouseId) {
     if (anchorId === spouseId) {
       alert('Bir kişi kendisine eş olamaz.');
       return false;
     }
 
-    let anchorMatch = findNodeInTree(project.trees, anchorId);
-    let spouseMatch = findNodeInTree(project.trees, spouseId);
+    const anchorMatch = findNodeInTree(project.trees, anchorId);
+    const spouseMatch = findNodeInTree(project.trees, spouseId);
     if (!anchorMatch || !spouseMatch) return false;
 
     if (personHasSpouseId(anchorMatch.node, spouseId) || personHasSpouseId(spouseMatch.node, anchorId)) {
@@ -2378,40 +2550,42 @@
       return false;
     }
 
-    // Eş adayı önce ağaçtan ayrılır (kök olmak zorunda değil — kuzenler serbest)
-    const spouseNode = extractPersonKeepSubtree(spouseMatch);
-    if (!spouseNode) return false;
-
-    anchorMatch = findNodeInTree(project.trees, anchorId);
-    if (!anchorMatch) {
-      addNearbyTree(spouseNode, null, ' (bağlanamadı)');
-      alert('Eş bağlanamadı; hedef kişi bulunamadı.');
-      saveProject();
-      refreshView();
-      return false;
-    }
-
-    // Tıklanan kişi evliliğin sol tarafı (anchor); resolveAnchor kullanılmaz —
-    // çocuk kartı da doğrudan eş alabilsin.
     const anchorPerson = anchorMatch.node;
+    const spousePerson = spouseMatch.node;
     ensureFamilyShape(anchorPerson);
-    ensureFamilyShape(spouseNode);
+    ensureFamilyShape(spousePerson);
 
+    const unionId = generateId('union');
+
+    // Ana kayıt: çocuklar bu birimde tutulur
     anchorPerson.spouses = anchorPerson.spouses || [];
     anchorPerson.spouses.push({
-      id: generateId('union'),
-      person: spouseNode,
+      id: unionId,
+      personId: spouseId,
+      ref: true,
       children: []
     });
+
+    // Ayna kayıt: diğer tarafta da eş görünür (çocuklar burada tutulmaz)
+    spousePerson.spouses = spousePerson.spouses || [];
+    spousePerson.spouses.push({
+      id: unionId + '_mirror',
+      personId: anchorId,
+      ref: true,
+      mirror: true,
+      children: []
+    });
+
     anchorPerson.collapsed = false;
+    spousePerson.collapsed = false;
 
     saveProject();
     recordActivity(
       'updated',
       'node',
-      spouseNode.id,
-      spouseNode.title,
-      '"' + spouseNode.title + '" ↔ "' + anchorPerson.title + '" eş olarak bağlandı'
+      spousePerson.id,
+      spousePerson.title,
+      '"' + spousePerson.title + '" ↔ "' + anchorPerson.title + '" eş (referans; ebeveyn bağları korundu)'
     );
     refreshView();
     return true;
