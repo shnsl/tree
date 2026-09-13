@@ -1352,36 +1352,133 @@
     }
   };
 
+  function addNearbyTree(rootNode, nearTree, nameSuffix) {
+    if (!rootNode) return null;
+    ensureFamilyShape(rootNode);
+    const baseX = (nearTree && typeof nearTree.x === 'number') ? nearTree.x : 200;
+    const baseY = (nearTree && typeof nearTree.y === 'number') ? nearTree.y : 200;
+    const newTree = {
+      id: generateId('tree'),
+      name: (rootNode.title || 'Soyağacı') + (nameSuffix || ''),
+      x: baseX + 280 + Math.floor(Math.random() * 80),
+      y: baseY + Math.floor(Math.random() * 60),
+      rootNode: rootNode
+    };
+    project.trees.push(newTree);
+    return newTree;
+  }
+
+  /** Silinen kişinin altındaki eş/çocukları ayrı kök olarak bırakır (onlar silinmez). */
+  function releaseDependentsAsTrees(person, nearTree) {
+    if (!person) return;
+    const unions = (person.spouses || []).slice();
+    const directKids = (person.children || []).slice();
+    person.spouses = [];
+    person.children = [];
+
+    unions.forEach((u) => {
+      if (!u || !u.person) return;
+      const spouseRoot = u.person;
+      ensureFamilyShape(spouseRoot);
+      (u.children || []).forEach((c) => {
+        spouseRoot.children = spouseRoot.children || [];
+        spouseRoot.children.push(c);
+      });
+      addNearbyTree(spouseRoot, nearTree, ' (ayrılan)');
+    });
+
+    directKids.forEach((c) => {
+      addNearbyTree(c, nearTree, ' (ayrılan)');
+    });
+  }
+
+  /** Kök silinince eşi/çocukları aynı ağaçta veya yan ağaçta tutar. */
+  function replaceRootKeepingOthers(tree, root) {
+    const unions = (root.spouses || []).slice();
+    const directKids = (root.children || []).slice();
+    root.spouses = [];
+    root.children = [];
+
+    if (unions.length > 0) {
+      const first = unions[0];
+      const newRoot = first.person;
+      if (!newRoot) {
+        project.trees = project.trees.filter((t) => t.id !== tree.id);
+        return;
+      }
+      ensureFamilyShape(newRoot);
+      (first.children || []).forEach((c) => {
+        newRoot.children = newRoot.children || [];
+        newRoot.children.push(c);
+      });
+      directKids.forEach((c) => {
+        newRoot.children = newRoot.children || [];
+        newRoot.children.push(c);
+      });
+      tree.rootNode = newRoot;
+
+      for (let i = 1; i < unions.length; i++) {
+        const u = unions[i];
+        if (!u || !u.person) continue;
+        ensureFamilyShape(u.person);
+        (u.children || []).forEach((c) => {
+          u.person.children = u.person.children || [];
+          u.person.children.push(c);
+        });
+        addNearbyTree(u.person, tree, ' (ayrılan)');
+      }
+      return;
+    }
+
+    if (directKids.length > 0) {
+      tree.rootNode = directKids[0];
+      for (let i = 1; i < directKids.length; i++) {
+        addNearbyTree(directKids[i], tree, ' (ayrılan)');
+      }
+      return;
+    }
+
+    project.trees = project.trees.filter((t) => t.id !== tree.id);
+  }
+
   window.deleteNode = function (nodeId) {
     const match = findNodeInTree(project.trees, nodeId);
     if (!match) return;
 
-    if (!match.parent && !match.isSpouse) {
-      window.deleteTree(match.tree.id);
-      return;
-    }
+    if (!confirm('"' + match.node.title + '" silinsin mi?\n\nSadece bu kişi kalkar; eş, çocuk ve diğer bağlı kartlar kalır.')) return;
 
-    if (!confirm('"' + match.node.title + '" ve bağlı kayıtları silmek istediğinize emin misiniz?')) return;
-    const nodeIds = new Set();
-    collectAllNodeIds(match.node, nodeIds);
+    const node = match.node;
+    const tree = match.tree;
+    const title = node.title;
 
     if (match.isSpouse && match.union && match.anchor) {
-      // Eş silinince birim çocukları da gider (veya ata.children'a taşınabilir — burada birim kalkar)
+      // Eş silindi: birim kalkar, çocuklar diğer ebeveynde (tek ebeveyn) kalır
+      const kids = (match.union.children || []).slice();
       match.anchor.spouses = (match.anchor.spouses || []).filter((u) => u.id !== match.union.id);
+      match.anchor.children = match.anchor.children || [];
+      kids.forEach((c) => match.anchor.children.push(c));
+      releaseDependentsAsTrees(node, tree);
     } else if (match.union && match.anchor) {
+      // Öz çocuk silindi: listeden çıkar, kendi alt ailesi ayrı kalsın
       match.union.children = (match.union.children || []).filter((c) => c.id !== nodeId);
+      releaseDependentsAsTrees(node, tree);
     } else if (match.parent) {
       match.parent.children = (match.parent.children || []).filter((c) => c.id !== nodeId);
-      // Eş birimi olarak da duruyor olabilir
       (match.parent.spouses || []).forEach((u) => {
         u.children = (u.children || []).filter((c) => c.id !== nodeId);
       });
+      releaseDependentsAsTrees(node, tree);
+    } else {
+      // Kök kişi: tüm ağacı silme — eş/çocuklar kalsın
+      replaceRootKeepingOthers(tree, node);
     }
 
-    project.relations = (project.relations || []).filter((r) => !nodeIds.has(r.sourceNodeId) && !nodeIds.has(r.targetNodeId));
+    project.relations = (project.relations || []).filter(
+      (r) => r.sourceNodeId !== nodeId && r.targetNodeId !== nodeId
+    );
     if (editingNodeId === nodeId) closeModal();
     saveProject();
-    recordActivity('deleted', 'node', nodeId, match.node.title, 'Kişi silindi');
+    recordActivity('deleted', 'node', nodeId, title, 'Kişi silindi (bağlı kartlar korundu)');
     refreshView();
   };
 
