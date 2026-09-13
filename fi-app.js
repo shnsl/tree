@@ -410,7 +410,6 @@
   // Soyağacı yerleşimi: eşler yatay, çocuklar çift ebeveyne (öz); çoklu eş = üvey grupları
   let marriageLinks = [];
   let parentChildLinks = [];
-  let uveyBrackets = [];
 
   function getChildrenRowWidth(children) {
     if (!children || !children.length) return 0;
@@ -466,7 +465,6 @@
     const nodeLayouts = new Map();
     marriageLinks = [];
     parentChildLinks = [];
-    uveyBrackets = [];
 
     function placeFamily(node, depth, startX, startY, parentIds, tree, meta) {
       ensureFamilyShape(node);
@@ -501,7 +499,6 @@
 
       let maxBottom = personY + nodeH;
       let maxRight = personX + CARD_WIDTH;
-      const unionCenters = [];
 
       (node.spouses || []).forEach((union, ui) => {
         const spouse = union.person;
@@ -559,7 +556,9 @@
               parents: [node.id, spouse.id],
               childId: child.id,
               kinship: 'oz',
-              unionId: union.id
+              unionId: union.id,
+              step: isStepSpouse,
+              lineColor: isStepSpouse ? STEP_SPOUSE_COLOR : MARRIAGE_COLOR
             });
             kidX += cw + HORIZONTAL_GAP;
             kidsBottom = Math.max(kidsBottom, placed.bottom);
@@ -567,29 +566,9 @@
           });
         }
 
-        unionCenters.push({
-          unionId: union.id,
-          midX: midCoupleX,
-          top: coupleBottom,
-          kidsLeft,
-          kidsRight,
-          spouseTitle: spouse.title || 'Eş'
-        });
-
         maxBottom = Math.max(maxBottom, kidsBottom, coupleBottom);
         maxRight = Math.max(maxRight, spouseX + CARD_WIDTH, kidsRight);
       });
-
-      // Aynı kişinin farklı eşlerinden çocuklar → üvey grupları
-      if (unionCenters.length > 1) {
-        for (let i = 0; i < unionCenters.length - 1; i++) {
-          uveyBrackets.push({
-            left: unionCenters[i],
-            right: unionCenters[i + 1],
-            anchorId: node.id
-          });
-        }
-      }
 
       // Eşsiz doğrudan çocuklar (tek ebeveyn / bilinmeyen diğer ebeveyn)
       if ((node.children || []).length) {
@@ -708,7 +687,7 @@
         </g>`;
     });
 
-    // Ebeveyn → çocuk (öz: iki ebeveyn, tek: tek ebeveyn)
+    // Ebeveyn → çocuk: çizgi rengi o birimin eş çizgisiyle aynı
     parentChildLinks.forEach((link) => {
       const child = nodeLayouts.get(link.childId);
       if (!child) return;
@@ -717,22 +696,21 @@
       const parents = (link.parents || []).map((id) => nodeLayouts.get(id)).filter(Boolean);
       if (!parents.length) return;
 
-      const isOz = link.kinship === 'oz' && parents.length === 2;
-      const stroke = isOz ? '#059669' : '#94a3b8';
-      const dash = isOz ? '' : (link.kinship === 'tek' ? '4,3' : '');
+      const stroke = link.lineColor || (link.kinship === 'oz' ? MARRIAGE_COLOR : '#94a3b8');
+      const dash = link.kinship === 'tek' ? '4,3' : '';
+      const isCouple = parents.length === 2;
 
-      if (parents.length === 2) {
+      if (isCouple) {
         const p1 = parents[0];
         const p2 = parents[1];
         const jx = (p1.x + p1.width / 2 + p2.x + p2.width / 2) / 2;
         const jy = Math.max(p1.y + p1.height, p2.y + p2.height) + 16;
         svgPaths += `
           <g>
-            <path d="M ${p1.x + p1.width / 2} ${p1.y + p1.height} L ${jx} ${jy}" fill="none" stroke="${stroke}" stroke-width="2" />
-            <path d="M ${p2.x + p2.width / 2} ${p2.y + p2.height} L ${jx} ${jy}" fill="none" stroke="${stroke}" stroke-width="2" />
-            <path d="M ${jx} ${jy} L ${endX} ${endY}" fill="none" stroke="${stroke}" stroke-width="2" stroke-dasharray="${dash}" />
-            <circle cx="${endX}" cy="${endY}" r="3" fill="${stroke}" />
-            ${isOz ? `<text x="${jx + 6}" y="${jy - 4}" fill="#059669" font-size="9" font-weight="700">öz</text>` : ''}
+            <path d="M ${p1.x + p1.width / 2} ${p1.y + p1.height} L ${jx} ${jy}" fill="none" stroke="${stroke}" stroke-width="2.5" stroke-linecap="round" />
+            <path d="M ${p2.x + p2.width / 2} ${p2.y + p2.height} L ${jx} ${jy}" fill="none" stroke="${stroke}" stroke-width="2.5" stroke-linecap="round" />
+            <path d="M ${jx} ${jy} L ${endX} ${endY}" fill="none" stroke="${stroke}" stroke-width="2.5" stroke-linecap="round" />
+            <circle cx="${endX}" cy="${endY}" r="3.5" fill="${stroke}" />
           </g>`;
       } else {
         const p = parents[0];
@@ -741,22 +719,10 @@
         const midY = sy + (endY - sy) / 2;
         svgPaths += `
           <g>
-            <path d="M ${sx} ${sy} C ${sx} ${midY}, ${endX} ${midY}, ${endX} ${endY}" fill="none" stroke="${stroke}" stroke-width="2" stroke-dasharray="${dash}" />
+            <path d="M ${sx} ${sy} C ${sx} ${midY}, ${endX} ${midY}, ${endX} ${endY}" fill="none" stroke="${stroke}" stroke-width="2" stroke-dasharray="${dash}" stroke-linecap="round" />
             <circle cx="${endX}" cy="${endY}" r="3" fill="${stroke}" />
           </g>`;
       }
-    });
-
-    // Üvey kardeş grupları arası kesikli bağ
-    uveyBrackets.forEach((br) => {
-      const y = Math.max(br.left.top, br.right.top) + 8;
-      const x1 = br.left.midX;
-      const x2 = br.right.midX;
-      svgPaths += `
-        <g>
-          <path d="M ${x1} ${y} L ${x2} ${y}" fill="none" stroke="#d97706" stroke-width="2" stroke-dasharray="6,4" />
-          <text x="${(x1 + x2) / 2}" y="${y - 6}" text-anchor="middle" fill="#d97706" font-size="10" font-weight="700">üvey kardeşler</text>
-        </g>`;
     });
 
     (project.relations || []).forEach((rel) => {
