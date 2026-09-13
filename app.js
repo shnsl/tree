@@ -2341,10 +2341,10 @@ relsListContainer.innerHTML = '<div class="text-slate-400 py-1.5 text-center bg-
         }
       })();
 
-      // Her gercek sayfa acilisinda (F5 / URL yenilemesi / otomatik guncelleme reload) giris sayfasi gosterilir.
-      // Otomatik oturum atlamasi yok; sadece 'Cikis Yap' butonu oturumu sonlandirir.
+      // Oturum aciksa (fi.html'den donus / ayni sekme) giris ekranini atla.
+      // Cikis Yap oturumu temizler; sonraki acilista tekrar sifre istenir.
       try {
-        if (false && sessionStorage.getItem('arhsAuthenticated') === '1') {
+        if (sessionStorage.getItem('arhsAuthenticated') === '1') {
           window.enterApp();
         } else {
           // Giris sayfasinda imlec sifre kutusuna gelsin; mobilde mumkunse klavye acilsin.
