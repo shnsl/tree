@@ -40,6 +40,18 @@
           if (t.canvasBackground)     rs.setProperty('--bg-canvas',      t.canvasBackground);
           if (t.canvasDotColor)       rs.setProperty('--bg-canvas-dot',  t.canvasDotColor);
         })();
-        document.title = cfg.NAME + ' - İnteraktif Hiyerarşik Ağaç Editörü';
+        if (!/fi\.html$/i.test(window.location.pathname || '')) {
+          document.title = cfg.NAME + ' - İnteraktif Hiyerarşik Ağaç Editörü';
+        }
       } catch (e) {}
     })();
+
+    // index.html <-> fi.html gecisi (app.js yuklenmeden once de calisir)
+    window.toggleFiPage = function(e) {
+      if (e) {
+        try { e.preventDefault(); e.stopPropagation(); } catch (e2) {}
+      }
+      var file = ((window.location.pathname || '').split('/').pop() || '').toLowerCase();
+      var target = (file === 'fi.html') ? './index.html' : './fi.html';
+      window.location.href = target;
+    };

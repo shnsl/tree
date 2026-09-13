@@ -604,11 +604,12 @@ function listenForFirebaseProject() {
       };
 
       // Ust bardaki ikona tiklaninca: index <-> fi arasinda gecis yapar.
-      window.toggleFiPage = function(e) {
+      // Asil tanim head-init.js icinde; burada guvence icin tekrar baglanir.
+      window.toggleFiPage = window.toggleFiPage || function(e) {
         if (e) { try { e.preventDefault(); e.stopPropagation(); } catch (e2) {} }
-        var path = (window.location.pathname || '').toLowerCase();
-        var target = path.indexOf('fi.html') !== -1 ? './index.html' : './fi.html';
-        try { window.location.assign(target); } catch (err) { window.location.href = target; }
+        var file = ((window.location.pathname || '').split('/').pop() || '').toLowerCase();
+        var target = (file === 'fi.html') ? './index.html' : './fi.html';
+        window.location.href = target;
       };
 window.handleLogin = function(event) {
         event.preventDefault();

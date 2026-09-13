@@ -54,6 +54,7 @@ self.addEventListener('fetch', (event) => {
     event.request.mode === 'navigate' ||
     url.includes('app-config.js') ||
     url.includes('index.html') ||
+    url.includes('fi.html') ||
     url.endsWith('/');
 
   // HTML / yapilandirma dosyalari icin: once ag -> her zaman en guncel icerik.

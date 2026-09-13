@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>FI</title>
   <script src="./app-config.js"></script>
+  <script src="./head-init.js"></script>
   <style>
     :root {
       --brand-font: 'Norwester';
@@ -29,6 +30,8 @@
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
       transition: background-color 0.3s ease, color 0.3s ease;
     }
+
+
 
     /* FI alani */
     .workspace { height: calc(100% - 62px); width: 100%; }
@@ -64,8 +67,9 @@
 <body>
   <!-- Ayrı Marka Cubugu: ikon ve ARSH yazisi her ekranda ortada -->
   <div class="brand-bar w-full bg-white border-b border-slate-200 flex items-center justify-center py-1.5 px-4 transition-colors">
-    <span onclick="window.toggleFiPage(event)" style="cursor:pointer;" title="Ana sayfaya don">
-      <img src="./icons/icon-192.png" alt="ARSH" class="w-12 h-12 rounded-lg object-cover" title="Ana sayfaya don" /></span>
+    <a href="./index.html" onclick="window.toggleFiPage(event)" style="cursor:pointer;" title="Ana sayfaya don">
+      <img src="./icons/icon-192.png" alt="ARSH" class="w-12 h-12 rounded-lg object-cover" title="Ana sayfaya don" />
+    </a>
     &nbsp;
     &nbsp;
     &nbsp;
@@ -89,12 +93,6 @@
         }
       } catch (e) {}
     })();
-
-    // fi.html app.js yuklemez; ikon tiklaninca index.html'e don.
-    window.toggleFiPage = function(e) {
-      if (e) { try { e.preventDefault(); e.stopPropagation(); } catch (e2) {} }
-      try { window.location.assign('./index.html'); } catch (err) { window.location.href = './index.html'; }
-    };
   </script>
 </body>
 </html>
