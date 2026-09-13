@@ -73,6 +73,7 @@
   let canvasWidth = 10000;
   let canvasHeight = 10000;
   let relationConnectingSourceId = null;
+  let relationConnectingPort = null; // 'up' | 'down' | 'cross'
   let mouseCanvasX = 0;
   let mouseCanvasY = 0;
   let selectedRelColor = '#8b5cf6';
@@ -801,20 +802,27 @@
 
     if (relationConnectingSourceId && nodeLayouts.has(relationConnectingSourceId)) {
       const srcLayout = nodeLayouts.get(relationConnectingSourceId);
+      const port = relationConnectingPort || 'cross';
       const startX = srcLayout.x + srcLayout.width / 2;
-      const startY = srcLayout.y + srcLayout.height;
+      const startY = port === 'up'
+        ? srcLayout.y
+        : port === 'down'
+          ? srcLayout.y + srcLayout.height
+          : srcLayout.y + srcLayout.height / 2;
       const endX = mouseCanvasX || (startX + 40);
-      const endY = mouseCanvasY || (startY + 80);
+      const endY = mouseCanvasY || (startY + (port === 'up' ? -80 : 80));
       const midY = startY + (endY - startY) / 2;
+      const previewColor = port === 'up' ? '#6366f1' : port === 'down' ? '#10b981' : selectedRelColor;
       const previewPath = 'M ' + startX + ' ' + startY + ' C ' + startX + ' ' + midY + ', ' + endX + ' ' + midY + ', ' + endX + ' ' + endY;
-      svgPaths += '<g><path d="' + previewPath + '" fill="none" stroke="' + selectedRelColor + '" stroke-width="2.5" stroke-dasharray="6,4" stroke-linecap="round" />' +
-        '<circle cx="' + endX + '" cy="' + endY + '" r="4" fill="' + selectedRelColor + '" /></g>';
+      svgPaths += '<g><path d="' + previewPath + '" fill="none" stroke="' + previewColor + '" stroke-width="2.5" stroke-dasharray="6,4" stroke-linecap="round" />' +
+        '<circle cx="' + endX + '" cy="' + endY + '" r="4" fill="' + previewColor + '" /></g>';
     }
 
     svg.innerHTML = svgPaths;
 
     const hasSearch = Boolean(searchQuery);
     const isConnecting = Boolean(relationConnectingSourceId);
+    const connPort = relationConnectingPort || 'cross';
     let nodesHtml = '';
     nodeLayouts.forEach((layout) => {
       const node = layout.node;
@@ -823,6 +831,8 @@
       const isSelected = selectedNodeId === node.id;
       const isConnSource = isConnecting && relationConnectingSourceId === node.id;
       const isConnTargetCandidate = isConnecting && !isConnSource;
+      const highlightUp = isConnTargetCandidate && (connPort === 'down' || connPort === 'cross');
+      const highlightDown = isConnTargetCandidate && (connPort === 'up' || connPort === 'cross');
 
       const fieldsHtml = node.fields && node.fields.length > 0 ? `
         <div class="mt-2 pt-2 border-t border-slate-100 space-y-1 text-[11px]">
@@ -843,8 +853,13 @@
       ` : '';
 
       let cardClasses = 'absolute rounded-xl bg-white shadow-sm border transition-all duration-200 select-none ';
-      if (isConnSource) cardClasses += 'ring-4 ring-violet-500 shadow-xl shadow-violet-500/30 scale-[1.02] z-30 ';
-      else if (isConnTargetCandidate) cardClasses += 'ring-2 ring-violet-400 ring-dashed bg-violet-50/40 hover:scale-[1.02] cursor-pointer z-30 ';
+      if (isConnSource) {
+        cardClasses += connPort === 'up'
+          ? 'ring-4 ring-indigo-500 shadow-xl shadow-indigo-500/30 scale-[1.02] z-30 '
+          : connPort === 'down'
+            ? 'ring-4 ring-emerald-500 shadow-xl shadow-emerald-500/30 scale-[1.02] z-30 '
+            : 'ring-4 ring-violet-500 shadow-xl shadow-violet-500/30 scale-[1.02] z-30 ';
+      } else if (isConnTargetCandidate) cardClasses += 'ring-2 ring-dashed bg-slate-50/40 hover:scale-[1.02] cursor-pointer z-30 ';
       else if (isSelected) cardClasses += 'ring-2 ring-emerald-500 shadow-md ';
       else if (hasSearch) {
         cardClasses += isMatch
@@ -854,28 +869,47 @@
         cardClasses += 'hover:shadow-md hover:border-slate-300 ';
       }
 
+      const sourceRingColor = isConnSource
+        ? (connPort === 'up' ? '#6366f1' : connPort === 'down' ? '#10b981' : '#8b5cf6')
+        : null;
+
       nodesHtml += `
         <div class="${cardClasses}"
-          style="left: ${layout.x}px; top: ${layout.y}px; width: ${layout.width}px; border-color: ${isConnSource ? '#8b5cf6' : isMatch ? '#f59e0b' : theme.border};"
+          style="left: ${layout.x}px; top: ${layout.y}px; width: ${layout.width}px; border-color: ${sourceRingColor || (isMatch ? '#f59e0b' : theme.border)};"
           id="node-card-${node.id}"
           ${isConnTargetCandidate ? `onclick="window.handleTargetNodeSelect('${node.id}')"` : ''}>
+          <!-- Üst bağlantı: ebeveynler -->
           <div
-            onclick="event.stopPropagation(); ${isConnecting ? `window.handleTargetNodeSelect('${node.id}')` : `window.startRelationConnect('${node.id}')`}"
-            class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-white border-2 border-violet-500 shadow-xs hover:scale-125 hover:bg-violet-600 flex items-center justify-center cursor-pointer z-30"
-            title="${isConnecting ? 'Hedef olarak bağla' : 'Çapraz ilişki başlat'}">
+            onclick="event.stopPropagation(); window.handleCardPortClick('${node.id}', 'up')"
+            class="absolute -top-2.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-white border-2 shadow-xs hover:scale-125 flex items-center justify-center cursor-pointer z-30 ${highlightUp ? 'border-indigo-500 bg-indigo-50 scale-110' : isConnSource && connPort === 'up' ? 'border-indigo-600 bg-indigo-600' : 'border-indigo-500 hover:bg-indigo-600'}"
+            title="${isConnecting ? (connPort === 'down' ? 'Ebeveyn olarak bağla (üst nokta)' : 'Hedef') : 'Ebeveyn bağlantısı — üst kuşak bağla'}">
+            <div class="w-1.5 h-1.5 rounded-full ${isConnSource && connPort === 'up' ? 'bg-white' : 'bg-indigo-600'}"></div>
+          </div>
+          <!-- Alt bağlantı: sonra gelenler (çocuklar) -->
+          <div
+            onclick="event.stopPropagation(); window.handleCardPortClick('${node.id}', 'down')"
+            class="absolute -bottom-2.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-white border-2 shadow-xs hover:scale-125 flex items-center justify-center cursor-pointer z-30 ${highlightDown ? 'border-emerald-500 bg-emerald-50 scale-110' : isConnSource && connPort === 'down' ? 'border-emerald-600 bg-emerald-600' : 'border-emerald-500 hover:bg-emerald-600'}"
+            title="${isConnecting ? (connPort === 'up' ? 'Çocuk / sonra gelen olarak bağla (alt nokta)' : 'Hedef') : 'Sonra gelenler — çocuk / alt kuşak bağla'}">
+            <div class="w-1.5 h-1.5 rounded-full ${isConnSource && connPort === 'down' ? 'bg-white' : 'bg-emerald-600'}"></div>
+          </div>
+          <!-- Yan: çapraz ilişki -->
+          <div
+            onclick="event.stopPropagation(); window.handleCardPortClick('${node.id}', 'cross')"
+            class="absolute top-1/2 -right-2.5 -translate-y-1/2 w-5 h-5 rounded-full bg-white border-2 border-violet-500 shadow-xs hover:scale-125 hover:bg-violet-600 flex items-center justify-center cursor-pointer z-30"
+            title="${isConnecting && connPort === 'cross' ? 'Çapraz hedef olarak bağla' : 'Çapraz ilişki'}">
             <div class="w-1.5 h-1.5 rounded-full bg-violet-600"></div>
           </div>
           <div
             onmousedown="window.startNodeDrag(event, '${node.id}')"
             ontouchstart="window.startTouchDrag(event, '${node.id}', null)"
             class="px-3 py-2 rounded-t-xl flex items-center justify-between border-b ${dragEnabled ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}"
-            style="background-color: ${isConnSource ? '#ede9fe' : isMatch ? '#fef3c7' : theme.headerBg}; border-color: ${theme.border}40;">
+            style="background-color: ${isConnSource ? (connPort === 'up' ? '#e0e7ff' : connPort === 'down' ? '#d1fae5' : '#ede9fe') : isMatch ? '#fef3c7' : theme.headerBg}; border-color: ${theme.border}40;">
             <div class="flex items-center gap-1.5 truncate">
               <span class="text-sm cursor-pointer" onclick="event.stopPropagation(); window.openEditModal('${node.id}')">${getIconEmoji(node.icon)}</span>
-              <span class="text-xs font-bold truncate cursor-pointer hover:underline" onclick="event.stopPropagation(); window.openEditModal('${node.id}')" style="color: ${isConnSource ? '#5b21b6' : isMatch ? '#92400e' : theme.headerText};">${escapeHtml(node.title)}</span>
+              <span class="text-xs font-bold truncate cursor-pointer hover:underline" onclick="event.stopPropagation(); window.openEditModal('${node.id}')" style="color: ${isConnSource ? (connPort === 'up' ? '#3730a3' : connPort === 'down' ? '#065f46' : '#5b21b6') : isMatch ? '#92400e' : theme.headerText};">${escapeHtml(node.title)}</span>
             </div>
             <div class="flex items-center gap-1">
-              ${isConnSource ? '<span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-violet-600 text-white">🔗 Kaynak</span>' : ''}
+              ${isConnSource ? `<span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold text-white ${connPort === 'up' ? 'bg-indigo-600' : connPort === 'down' ? 'bg-emerald-600' : 'bg-violet-600'}">${connPort === 'up' ? '↑ Ebeveyn' : connPort === 'down' ? '↓ Alt' : '🔗 Kaynak'}</span>` : ''}
               ${layout.isSpouse ? (layout.stepSpouse
                 ? '<span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-violet-600 text-white">💑 Üvey eş</span>'
                 : '<span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-500 text-white">💑 Eş</span>') : ''}
@@ -897,6 +931,8 @@
             ${fieldsHtml}
           </div>
           <div class="px-2 py-1.5 bg-slate-50/80 rounded-b-xl border-t border-slate-100 flex flex-wrap items-center gap-1 text-[10px] text-slate-600">
+            <button onclick="event.stopPropagation(); window.addParentsNode('${node.id}')"
+              class="px-1.5 py-0.5 rounded bg-white hover:bg-indigo-50 text-indigo-700 border border-slate-200 font-bold" title="Anne ve baba ekle (üst kuşak)">👪 A/B</button>
             <button onclick="event.stopPropagation(); window.addSpouseNode('${node.id}')"
               class="px-1.5 py-0.5 rounded bg-white hover:bg-rose-50 text-rose-700 border border-slate-200 font-bold" title="Eş ekle">💑 Eş</button>
             <button onclick="event.stopPropagation(); window.addChildNode('${node.id}')"
@@ -905,7 +941,7 @@
               class="px-1.5 py-0.5 rounded bg-white hover:bg-blue-50 text-blue-700 border border-slate-200 font-bold" title="Öz kardeş (aynı anne-baba)">👥 Öz</button>
             <button onclick="event.stopPropagation(); window.addStepChildNode('${node.id}')"
               class="px-1.5 py-0.5 rounded bg-white hover:bg-amber-50 text-amber-700 border border-slate-200 font-bold" title="Üvey: diğer eşin çocuğu">🔀 Üvey</button>
-            <button onclick="event.stopPropagation(); window.startRelationConnect('${node.id}')" class="px-1.5 py-0.5 rounded bg-white hover:bg-violet-50 text-violet-700 border border-slate-200" title="Çapraz ilişki">🔗</button>
+            <button onclick="event.stopPropagation(); window.startRelationConnect('${node.id}', 'cross')" class="px-1.5 py-0.5 rounded bg-white hover:bg-violet-50 text-violet-700 border border-slate-200" title="Çapraz ilişki">🔗</button>
             <button onclick="event.stopPropagation(); window.openEditModal('${node.id}')" class="p-1 rounded bg-white hover:bg-slate-200 border border-slate-200">✏️</button>
             <button onclick="event.stopPropagation(); window.deleteNode('${node.id}')" class="p-1 rounded bg-white hover:bg-rose-50 text-rose-600 border border-slate-200">🗑️</button>
           </div>
@@ -962,6 +998,7 @@
               </div>
             </div>
             <div class="flex flex-wrap items-center gap-1 shrink-0">
+              <button onclick="window.addParentsNode('${node.id}')" class="px-1.5 py-0.5 text-[10px] font-bold bg-indigo-50 text-indigo-700 rounded-lg border" title="Anne-baba">👪</button>
               <button onclick="window.addSpouseNode('${node.id}')" class="px-1.5 py-0.5 text-[10px] font-bold bg-rose-50 text-rose-700 rounded-lg border">💑</button>
               <button onclick="window.addChildNode('${node.id}')" class="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-50 text-emerald-700 rounded-lg border">➕</button>
               <button onclick="window.addStepChildNode('${node.id}')" class="px-1.5 py-0.5 text-[10px] font-bold bg-amber-50 text-amber-700 rounded-lg border">🔀</button>
@@ -987,6 +1024,7 @@
             <h2 class="text-base font-bold text-slate-900">${escapeHtml(tree.name)}</h2>
           </div>
           <div class="flex items-center gap-2">
+            <button onclick="window.addParentsNode('${tree.rootNode.id}')" class="px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold">👪 Anne-Baba</button>
             <button onclick="window.addSpouseNode('${tree.rootNode.id}')" class="px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold">💑 Eş</button>
             <button onclick="window.addChildNode('${tree.rootNode.id}')" class="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-bold">➕ Çocuk</button>
             <button onclick="window.renameTree('${tree.id}')" class="p-1 text-slate-500 hover:bg-slate-100 rounded-lg">✏️</button>
@@ -1150,6 +1188,67 @@
     recordActivity('created', 'node', union.person.id, union.person.title, '"' + anchor.title + '" eş olarak eklendi');
     refreshView();
     window.openEditModal(union.person.id);
+  };
+
+  // 👪 Anne-baba: seçili kişinin üstüne baba+anne kuşağı ekler (ağacı yukarı büyütür)
+  window.addParentsNode = function (personId) {
+    const match = findNodeInTree(project.trees, personId);
+    if (!match) return;
+
+    if (match.isSpouse) {
+      alert('Eş kartına anne-baba eklenemez. Ata / kök kişiye veya çocuğa ekleyin; eş için ayrı soyağacı oluşturabilirsiniz.');
+      return;
+    }
+
+    // Zaten bir üst kuşak var (union çocuğu veya doğrudan çocuk)
+    if (match.parent || match.union || match.anchor) {
+      alert('Bu kişinin soyağacında zaten anne/baba kuşağı var. Üst kuşağı genişletmek için baba veya anne kartından «Anne-Baba» kullanın.');
+      return;
+    }
+
+    const tree = match.tree;
+    const child = match.node;
+
+    const father = createPerson({
+      title: 'Baba',
+      subtitle: 'Baba',
+      gender: 'male',
+      color: 'blue',
+      icon: 'user'
+    });
+    applyGenderTheme(father);
+
+    const mother = createPerson({
+      title: 'Anne',
+      subtitle: 'Anne',
+      gender: 'female',
+      color: 'rose',
+      icon: 'heart'
+    });
+    applyGenderTheme(mother);
+
+    const union = {
+      id: generateId('union'),
+      person: mother,
+      children: [child]
+    };
+    father.spouses = [union];
+    father.children = [];
+    father.collapsed = false;
+
+    tree.rootNode = father;
+
+    saveProject();
+    recordActivity(
+      'created',
+      'node',
+      father.id,
+      father.title,
+      '"' + child.title + '" için anne-baba eklendi'
+    );
+    refreshView();
+    alert('Baba ve anne eklendi. İsterseniz adlarını düzenleyin.');
+    window.openEditModal(father.id);
   };
 
   // ➕ Öz çocuk: eş birimine eklenir (eş yoksa önce eş oluşur); iki ebeveyne bağlanır
@@ -1912,40 +2011,167 @@
     if (activity.entityType === 'relation') window.deleteRelation(activity.entityId);
   };
 
-  window.startRelationConnect = function (sourceId) {
+  window.startRelationConnect = function (sourceId, port) {
     const match = findNodeInTree(project.trees, sourceId);
     if (!match) return;
     relationConnectingSourceId = sourceId;
+    relationConnectingPort = port === 'up' || port === 'down' || port === 'cross' ? port : 'cross';
     const banner = document.getElementById('relation-connecting-bar');
     const sourceNameEl = document.getElementById('rel-conn-source-name');
+    const hintEl = document.getElementById('rel-conn-hint');
     if (banner && sourceNameEl) {
       sourceNameEl.textContent = match.node.title;
+      if (hintEl) {
+        if (relationConnectingPort === 'up') {
+          hintEl.textContent = ' → Ebeveyn olacak kişinin alt (yeşil) noktasına veya kartına tıklayın';
+        } else if (relationConnectingPort === 'down') {
+          hintEl.textContent = ' → Çocuk / sonra gelen kişinin üst (mor) noktasına veya kartına tıklayın';
+        } else {
+          hintEl.textContent = ' → Çapraz bağlanacak hedef kişiye tıklayın';
+        }
+      }
       banner.classList.remove('hidden');
     }
     renderCanvas();
   };
+
   window.cancelRelationConnect = function () {
     relationConnectingSourceId = null;
+    relationConnectingPort = null;
     const banner = document.getElementById('relation-connecting-bar');
     if (banner) banner.classList.add('hidden');
     renderCanvas();
   };
-  window.handleTargetNodeSelect = function (targetId) {
+
+  function isTreeRootMatch(match) {
+    return Boolean(match && !match.parent && !match.isSpouse && !match.union && !match.anchor);
+  }
+
+  function extractRootNode(match) {
+    if (!isTreeRootMatch(match)) return null;
+    const tree = match.tree;
+    const node = match.node;
+    project.trees = project.trees.filter((t) => t.id !== tree.id);
+    return node;
+  }
+
+  function linkParentToChild(parentId, childId) {
+    if (parentId === childId) {
+      alert('Bir kişi kendisine bağlanamaz.');
+      return false;
+    }
+    const parentMatch = findNodeInTree(project.trees, parentId);
+    const childMatch = findNodeInTree(project.trees, childId);
+    if (!parentMatch || !childMatch) return false;
+
+    if (!isTreeRootMatch(childMatch)) {
+      alert('Çocuk olarak bağlamak için hedefin üst kuşağı olmamalı (kök kişi / ayrı soyağacı).');
+      return false;
+    }
+
+    const descendantIds = new Set();
+    collectAllNodeIds(childMatch.node, descendantIds);
+    if (descendantIds.has(parentId)) {
+      alert('Döngü oluşur: ebeveyn, bağlanacak kişinin alt ağacında olamaz.');
+      return false;
+    }
+
+    const childNode = extractRootNode(childMatch);
+    if (!childNode) return false;
+
+    const anchor = resolveAnchor(parentMatch);
+    ensureFamilyShape(anchor);
+    let unionInfo;
+    if (parentMatch.isSpouse && parentMatch.union) {
+      unionInfo = { union: parentMatch.union, createdSpouse: false };
+    } else {
+      unionInfo = pickUnionForChild(anchor, false);
+    }
+    if (!unionInfo) {
+      // Geri al: çocuğu tekrar ağaç olarak ekle
+      project.trees.push({
+        id: generateId('tree'),
+        name: childNode.title || 'Soyağacı',
+        x: 200,
+        y: 200,
+        rootNode: childNode
+      });
+      saveProject();
+      refreshView();
+      return false;
+    }
+
+    unionInfo.union.children.push(childNode);
+    anchor.collapsed = false;
+    saveProject();
+    recordActivity(
+      'updated',
+      'node',
+      childNode.id,
+      childNode.title,
+      '"' + childNode.title + '" → "' + anchor.title + '" çocuğu olarak bağlandı'
+    );
+    refreshView();
+    return true;
+  }
+
+  window.handleCardPortClick = function (nodeId, port) {
+    const p = port === 'up' || port === 'down' || port === 'cross' ? port : 'cross';
+    if (!relationConnectingSourceId) {
+      window.startRelationConnect(nodeId, p);
+      return;
+    }
+    if (relationConnectingSourceId === nodeId) {
+      // Aynı kartta porta tekrar tıklayınca iptal veya port değiştir
+      if (relationConnectingPort === p) {
+        window.cancelRelationConnect();
+      } else {
+        window.startRelationConnect(nodeId, p);
+      }
+      return;
+    }
+    window.handleTargetNodeSelect(nodeId, p);
+  };
+
+  window.handleTargetNodeSelect = function (targetId, targetPort) {
     if (!relationConnectingSourceId) return;
     if (relationConnectingSourceId === targetId) {
       alert('Bir kişi kendisine bağlanamaz.');
       return;
     }
     const sId = relationConnectingSourceId;
-    window.cancelRelationConnect();
-    window.openRelationModal(null, sId, targetId);
+    const sPort = relationConnectingPort || 'cross';
+    const tPort = targetPort || null;
+
+    if (sPort === 'cross' || tPort === 'cross') {
+      window.cancelRelationConnect();
+      window.openRelationModal(null, sId, targetId);
+      return;
+    }
+
+    // Alt (down) → üst (up): kaynak ebeveyn, hedef çocuk
+    if (sPort === 'down' && (!tPort || tPort === 'up')) {
+      window.cancelRelationConnect();
+      linkParentToChild(sId, targetId);
+      return;
+    }
+
+    // Üst (up) → alt (down): kaynak çocuk, hedef ebeveyn
+    if (sPort === 'up' && (!tPort || tPort === 'down')) {
+      window.cancelRelationConnect();
+      linkParentToChild(targetId, sId);
+      return;
+    }
+
+    alert('Ebeveyn için üst (mor) nokta, çocuk / sonra gelen için alt (yeşil) nokta kullanın.');
   };
+
   window.startRelationFromCurrentModalNode = function () {
     if (!editingNodeId) return;
     const nodeSrcId = editingNodeId;
     closeModal();
     if (viewMode !== 'canvas') setViewMode('canvas');
-    window.startRelationConnect(nodeSrcId);
+    window.startRelationConnect(nodeSrcId, 'cross');
   };
 
   function renderRelColorPicker() {
